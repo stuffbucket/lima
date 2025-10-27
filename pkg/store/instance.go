@@ -145,6 +145,10 @@ func Inspect(ctx context.Context, instName string) (*limatype.Instance, error) {
 		inst.Errors = append(inst.Errors, err)
 	}
 	inst.Param = y.Param
+
+	// Populate GUI information
+	populateGUIInfo(inst)
+
 	return inst, nil
 }
 

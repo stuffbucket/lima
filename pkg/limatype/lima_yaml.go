@@ -217,10 +217,34 @@ type VNCOptions struct {
 	Display *string `yaml:"display,omitempty" json:"display,omitempty" jsonschema:"nullable"`
 }
 
+type SPICEOptions struct {
+	// Enable SPICE GL (OpenGL acceleration)
+	GL *bool `yaml:"gl,omitempty" json:"gl,omitempty" jsonschema:"nullable"`
+	// Enable SPICE streaming video
+	StreamingVideo *string `yaml:"streamingVideo,omitempty" json:"streamingVideo,omitempty" jsonschema:"nullable"`
+	// Enable SPICE agent
+	Agent *bool `yaml:"agent,omitempty" json:"agent,omitempty" jsonschema:"nullable"`
+	// Enable SPICE audio streaming
+	Audio *bool `yaml:"audio,omitempty" json:"audio,omitempty" jsonschema:"nullable"`
+}
+
+type VZOptions struct {
+	// Width is the display width in pixels (default: 1920)
+	Width *int `yaml:"width,omitempty" json:"width,omitempty" jsonschema:"nullable"`
+	// Height is the display height in pixels (default: 1200)
+	Height *int `yaml:"height,omitempty" json:"height,omitempty" jsonschema:"nullable"`
+	// DisableClipboard disables clipboard sharing via SPICE agent (default: false, requires macOS 13+)
+	// When enabled, clipboard sharing allows copy/paste between host and guest.
+	// Requires spice-vdagent to be installed in the guest.
+	DisableClipboard *bool `yaml:"disableClipboard,omitempty" json:"disableClipboard,omitempty" jsonschema:"nullable"`
+}
+
 type Video struct {
 	// Display is a QEMU display string
-	Display *string    `yaml:"display,omitempty" json:"display,omitempty" jsonschema:"nullable"`
-	VNC     VNCOptions `yaml:"vnc,omitempty" json:"vnc,omitempty"`
+	Display *string      `yaml:"display,omitempty" json:"display,omitempty" jsonschema:"nullable"`
+	VNC     VNCOptions   `yaml:"vnc,omitempty" json:"vnc,omitempty"`
+	SPICE   SPICEOptions `yaml:"spice,omitempty" json:"spice,omitempty"`
+	VZ      VZOptions    `yaml:"vz,omitempty" json:"vz,omitempty"`
 }
 
 type ProvisionMode = string

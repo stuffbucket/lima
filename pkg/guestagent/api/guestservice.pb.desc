@@ -1,9 +1,19 @@
 
-…
-guestservice.protogoogle/protobuf/empty.protogoogle/protobuf/timestamp.proto"0
+Ù
+guestservice.protogoogle/protobuf/empty.protogoogle/protobuf/timestamp.proto"L
 Info(
 local_ports (2.IPPortR
-localPorts"½
+localPorts
+gui (2.GUIInfoRgui"µ
+GUIInfo%
+display_server (	RdisplayServer%
+session_active (RsessionActive
+
+resolution (	R
+resolution 
+idle_time_ms (R
+idleTimeMs
+displays (	Rdisplays"½
 Event.
 time (2.google.protobuf.TimestampRtime3
 added_local_ports (2.IPPortRaddedLocalPorts7

@@ -48,6 +48,18 @@ type Instance struct {
 	LimaVersion           string            `json:"limaVersion"`
 	Param                 map[string]string `json:"param,omitempty"`
 	AutoStartedIdentifier string            `json:"autoStartedIdentifier,omitempty"`
+	// GUI-related fields
+	GUI *GUIInfo `json:"gui,omitempty"`
+}
+
+// GUIInfo contains GUI-related information for the instance
+type GUIInfo struct {
+	Display         string `json:"display"`                   // "vz", "none", "vnc", etc.
+	Enabled         bool   `json:"enabled"`                   // Whether GUI is enabled
+	CanRunGUI       bool   `json:"canRunGUI"`                 // Whether the driver supports GUI
+	Resolution      string `json:"resolution,omitempty"`      // e.g., "1920x1200"
+	ClipboardShared bool   `json:"clipboardShared,omitempty"` // Whether clipboard sharing is enabled
+	AudioEnabled    bool   `json:"audioEnabled,omitempty"`    // Whether audio is enabled
 }
 
 // Protect protects the instance to prohibit accidental removal.

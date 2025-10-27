@@ -190,6 +190,7 @@ func newApp() *cobra.Command {
 		newGuestInstallCommand(),
 		newInfoCommand(),
 		newShowSSHCommand(),
+		newShowGUICommand(),
 		newDebugCommand(),
 		newEditCommand(),
 		newFactoryResetCommand(),

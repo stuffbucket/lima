@@ -26,6 +26,7 @@ const (
 type Info struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LocalPorts    []*IPPort              `protobuf:"bytes,1,rep,name=local_ports,json=localPorts,proto3" json:"local_ports,omitempty"`
+	Gui           *GUIInfo               `protobuf:"bytes,2,opt,name=gui,proto3" json:"gui,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -67,6 +68,89 @@ func (x *Info) GetLocalPorts() []*IPPort {
 	return nil
 }
 
+func (x *Info) GetGui() *GUIInfo {
+	if x != nil {
+		return x.Gui
+	}
+	return nil
+}
+
+type GUIInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DisplayServer string                 `protobuf:"bytes,1,opt,name=display_server,json=displayServer,proto3" json:"display_server,omitempty"`  // "X11", "Wayland", "none"
+	SessionActive bool                   `protobuf:"varint,2,opt,name=session_active,json=sessionActive,proto3" json:"session_active,omitempty"` // Whether a GUI session is running
+	Resolution    string                 `protobuf:"bytes,3,opt,name=resolution,proto3" json:"resolution,omitempty"`                             // Current display resolution, e.g., "1920x1080"
+	IdleTimeMs    int64                  `protobuf:"varint,4,opt,name=idle_time_ms,json=idleTimeMs,proto3" json:"idle_time_ms,omitempty"`        // Milliseconds since last user activity
+	Displays      []string               `protobuf:"bytes,5,rep,name=displays,proto3" json:"displays,omitempty"`                                 // Display names/identifiers (e.g., ":0", "wayland-0")
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GUIInfo) Reset() {
+	*x = GUIInfo{}
+	mi := &file_guestservice_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GUIInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GUIInfo) ProtoMessage() {}
+
+func (x *GUIInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_guestservice_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GUIInfo.ProtoReflect.Descriptor instead.
+func (*GUIInfo) Descriptor() ([]byte, []int) {
+	return file_guestservice_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *GUIInfo) GetDisplayServer() string {
+	if x != nil {
+		return x.DisplayServer
+	}
+	return ""
+}
+
+func (x *GUIInfo) GetSessionActive() bool {
+	if x != nil {
+		return x.SessionActive
+	}
+	return false
+}
+
+func (x *GUIInfo) GetResolution() string {
+	if x != nil {
+		return x.Resolution
+	}
+	return ""
+}
+
+func (x *GUIInfo) GetIdleTimeMs() int64 {
+	if x != nil {
+		return x.IdleTimeMs
+	}
+	return 0
+}
+
+func (x *GUIInfo) GetDisplays() []string {
+	if x != nil {
+		return x.Displays
+	}
+	return nil
+}
+
 type Event struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Time              *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
@@ -79,7 +163,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_guestservice_proto_msgTypes[1]
+	mi := &file_guestservice_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -91,7 +175,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_guestservice_proto_msgTypes[1]
+	mi := &file_guestservice_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -104,7 +188,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_guestservice_proto_rawDescGZIP(), []int{1}
+	return file_guestservice_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Event) GetTime() *timestamppb.Timestamp {
@@ -146,7 +230,7 @@ type IPPort struct {
 
 func (x *IPPort) Reset() {
 	*x = IPPort{}
-	mi := &file_guestservice_proto_msgTypes[2]
+	mi := &file_guestservice_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -158,7 +242,7 @@ func (x *IPPort) String() string {
 func (*IPPort) ProtoMessage() {}
 
 func (x *IPPort) ProtoReflect() protoreflect.Message {
-	mi := &file_guestservice_proto_msgTypes[2]
+	mi := &file_guestservice_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -171,7 +255,7 @@ func (x *IPPort) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IPPort.ProtoReflect.Descriptor instead.
 func (*IPPort) Descriptor() ([]byte, []int) {
-	return file_guestservice_proto_rawDescGZIP(), []int{2}
+	return file_guestservice_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *IPPort) GetProtocol() string {
@@ -205,7 +289,7 @@ type Inotify struct {
 
 func (x *Inotify) Reset() {
 	*x = Inotify{}
-	mi := &file_guestservice_proto_msgTypes[3]
+	mi := &file_guestservice_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -217,7 +301,7 @@ func (x *Inotify) String() string {
 func (*Inotify) ProtoMessage() {}
 
 func (x *Inotify) ProtoReflect() protoreflect.Message {
-	mi := &file_guestservice_proto_msgTypes[3]
+	mi := &file_guestservice_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -230,7 +314,7 @@ func (x *Inotify) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Inotify.ProtoReflect.Descriptor instead.
 func (*Inotify) Descriptor() ([]byte, []int) {
-	return file_guestservice_proto_rawDescGZIP(), []int{3}
+	return file_guestservice_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Inotify) GetMountPath() string {
@@ -260,7 +344,7 @@ type TunnelMessage struct {
 
 func (x *TunnelMessage) Reset() {
 	*x = TunnelMessage{}
-	mi := &file_guestservice_proto_msgTypes[4]
+	mi := &file_guestservice_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -272,7 +356,7 @@ func (x *TunnelMessage) String() string {
 func (*TunnelMessage) ProtoMessage() {}
 
 func (x *TunnelMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_guestservice_proto_msgTypes[4]
+	mi := &file_guestservice_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -285,7 +369,7 @@ func (x *TunnelMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TunnelMessage.ProtoReflect.Descriptor instead.
 func (*TunnelMessage) Descriptor() ([]byte, []int) {
-	return file_guestservice_proto_rawDescGZIP(), []int{4}
+	return file_guestservice_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *TunnelMessage) GetId() string {
@@ -327,10 +411,20 @@ var File_guestservice_proto protoreflect.FileDescriptor
 
 const file_guestservice_proto_rawDesc = "" +
 	"\n" +
-	"\x12guestservice.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"0\n" +
+	"\x12guestservice.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"L\n" +
 	"\x04Info\x12(\n" +
 	"\vlocal_ports\x18\x01 \x03(\v2\a.IPPortR\n" +
-	"localPorts\"\xbd\x01\n" +
+	"localPorts\x12\x1a\n" +
+	"\x03gui\x18\x02 \x01(\v2\b.GUIInfoR\x03gui\"\xb5\x01\n" +
+	"\aGUIInfo\x12%\n" +
+	"\x0edisplay_server\x18\x01 \x01(\tR\rdisplayServer\x12%\n" +
+	"\x0esession_active\x18\x02 \x01(\bR\rsessionActive\x12\x1e\n" +
+	"\n" +
+	"resolution\x18\x03 \x01(\tR\n" +
+	"resolution\x12 \n" +
+	"\fidle_time_ms\x18\x04 \x01(\x03R\n" +
+	"idleTimeMs\x12\x1a\n" +
+	"\bdisplays\x18\x05 \x03(\tR\bdisplays\"\xbd\x01\n" +
 	"\x05Event\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x123\n" +
 	"\x11added_local_ports\x18\x02 \x03(\v2\a.IPPortR\x0faddedLocalPorts\x127\n" +
@@ -369,35 +463,37 @@ func file_guestservice_proto_rawDescGZIP() []byte {
 	return file_guestservice_proto_rawDescData
 }
 
-var file_guestservice_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_guestservice_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_guestservice_proto_goTypes = []any{
 	(*Info)(nil),                  // 0: Info
-	(*Event)(nil),                 // 1: Event
-	(*IPPort)(nil),                // 2: IPPort
-	(*Inotify)(nil),               // 3: Inotify
-	(*TunnelMessage)(nil),         // 4: TunnelMessage
-	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),         // 6: google.protobuf.Empty
+	(*GUIInfo)(nil),               // 1: GUIInfo
+	(*Event)(nil),                 // 2: Event
+	(*IPPort)(nil),                // 3: IPPort
+	(*Inotify)(nil),               // 4: Inotify
+	(*TunnelMessage)(nil),         // 5: TunnelMessage
+	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),         // 7: google.protobuf.Empty
 }
 var file_guestservice_proto_depIdxs = []int32{
-	2, // 0: Info.local_ports:type_name -> IPPort
-	5, // 1: Event.time:type_name -> google.protobuf.Timestamp
-	2, // 2: Event.added_local_ports:type_name -> IPPort
-	2, // 3: Event.removed_local_ports:type_name -> IPPort
-	5, // 4: Inotify.time:type_name -> google.protobuf.Timestamp
-	6, // 5: GuestService.GetInfo:input_type -> google.protobuf.Empty
-	6, // 6: GuestService.GetEvents:input_type -> google.protobuf.Empty
-	3, // 7: GuestService.PostInotify:input_type -> Inotify
-	4, // 8: GuestService.Tunnel:input_type -> TunnelMessage
-	0, // 9: GuestService.GetInfo:output_type -> Info
-	1, // 10: GuestService.GetEvents:output_type -> Event
-	6, // 11: GuestService.PostInotify:output_type -> google.protobuf.Empty
-	4, // 12: GuestService.Tunnel:output_type -> TunnelMessage
-	9, // [9:13] is the sub-list for method output_type
-	5, // [5:9] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	3,  // 0: Info.local_ports:type_name -> IPPort
+	1,  // 1: Info.gui:type_name -> GUIInfo
+	6,  // 2: Event.time:type_name -> google.protobuf.Timestamp
+	3,  // 3: Event.added_local_ports:type_name -> IPPort
+	3,  // 4: Event.removed_local_ports:type_name -> IPPort
+	6,  // 5: Inotify.time:type_name -> google.protobuf.Timestamp
+	7,  // 6: GuestService.GetInfo:input_type -> google.protobuf.Empty
+	7,  // 7: GuestService.GetEvents:input_type -> google.protobuf.Empty
+	4,  // 8: GuestService.PostInotify:input_type -> Inotify
+	5,  // 9: GuestService.Tunnel:input_type -> TunnelMessage
+	0,  // 10: GuestService.GetInfo:output_type -> Info
+	2,  // 11: GuestService.GetEvents:output_type -> Event
+	7,  // 12: GuestService.PostInotify:output_type -> google.protobuf.Empty
+	5,  // 13: GuestService.Tunnel:output_type -> TunnelMessage
+	10, // [10:14] is the sub-list for method output_type
+	6,  // [6:10] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_guestservice_proto_init() }
@@ -411,7 +507,7 @@ func file_guestservice_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_guestservice_proto_rawDesc), len(file_guestservice_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

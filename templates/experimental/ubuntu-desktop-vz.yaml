@@ -1,0 +1,87 @@
+# Ubuntu Desktop with VZ Native Display
+# Uses VZ driver for native macOS GUI window with desktop environment
+
+vmType: vz
+
+# VZ native display (better than SPICE for macOS)
+video:
+  display: "vz"
+
+# VZ native audio
+audio:
+  device: "vz"
+
+# Ubuntu cloud image
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 4
+memory: "8GiB"
+disk: "50GiB"
+
+mounts:
+  - location: "~"
+  - location: "/tmp/lima"
+    writable: true
+
+ssh:
+  localPort: 0
+  loadDotSSHPubKeys: true
+
+# Install Xfce desktop on the cloud image
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Update package lists
+      apt-get update
+      
+      # Install Xfce desktop environment and display manager
+      DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        xubuntu-desktop \
+        xorg \
+        dbus-x11
+      
+      # Configure automatic login for lima user
+      mkdir -p /etc/lightdm/lightdm.conf.d
+      cat > /etc/lightdm/lightdm.conf.d/50-autologin.conf <<'EOF'
+      [Seat:*]
+      autologin-user=lima
+      autologin-user-timeout=0
+      EOF
+      
+      # Enable graphical target
+      systemctl set-default graphical.target
+      
+      echo "Desktop environment installed. Rebooting to start GUI..."
+      sleep 3
+      systemctl reboot
+
+hostResolver:
+  enabled: true
+
+message: |
+  ======================================================================
+  Ubuntu Desktop (Xubuntu) with VZ Native Display
+  ======================================================================
+  
+  Installing Xubuntu desktop environment (5-10 minutes).
+  The VM will automatically reboot when installation completes.
+  
+  After reboot, launch the native macOS GUI window:
+    limactl show-gui ubuntu-desktop
+  
+  No external viewer needed - VZ provides native macOS window!
+  
+  Features:
+    - Native macOS window with Metal acceleration
+    - Xfce Desktop Environment (lightweight)
+    - Built-in audio support  
+    - Auto-login as user 'lima'
+    - Better performance than QEMU/SPICE on macOS
+  ======================================================================

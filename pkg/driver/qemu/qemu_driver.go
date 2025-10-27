@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -37,6 +38,7 @@ import (
 	"github.com/lima-vm/lima/v2/pkg/osutil"
 	"github.com/lima-vm/lima/v2/pkg/ptr"
 	"github.com/lima-vm/lima/v2/pkg/reflectutil"
+	"github.com/lima-vm/lima/v2/pkg/spiceclient"
 	"github.com/lima-vm/lima/v2/pkg/version/versionutil"
 )
 
@@ -385,11 +387,19 @@ func (l *LimaQemuDriver) Stop(ctx context.Context) error {
 	return l.shutdownQEMU(ctx, 3*time.Minute, l.qCmd, l.qWaitCh)
 }
 
-func (l *LimaQemuDriver) ChangeDisplayPassword(_ context.Context, password string) error {
+func (l *LimaQemuDriver) ChangeDisplayPassword(ctx context.Context, password string) error {
+	// Determine if we're using SPICE or VNC based on the display configuration
+	if l.Instance.Config.Video.Display != nil && strings.HasPrefix(*l.Instance.Config.Video.Display, "spice") {
+		return l.changeSPICEPassword(password)
+	}
 	return l.changeVNCPassword(password)
 }
 
-func (l *LimaQemuDriver) DisplayConnection(_ context.Context) (string, error) {
+func (l *LimaQemuDriver) DisplayConnection(ctx context.Context) (string, error) {
+	// Check if SPICE is configured
+	if l.Instance.Config.Video.Display != nil && strings.HasPrefix(*l.Instance.Config.Video.Display, "spice") {
+		return l.getSPICEDisplayPort()
+	}
 	return l.getVNCDisplayPort()
 }
 
@@ -454,6 +464,46 @@ func (l *LimaQemuDriver) changeVNCPassword(password string) error {
 	return nil
 }
 
+func (l *LimaQemuDriver) changeSPICEPassword(password string) error {
+	qmpSockPath := filepath.Join(l.Instance.Dir, filenames.QMPSock)
+	err := waitFileExists(qmpSockPath, 30*time.Second)
+	if err != nil {
+		return err
+	}
+	qmpClient, err := qmp.NewSocketMonitor("unix", qmpSockPath, 5*time.Second)
+	if err != nil {
+		return err
+	}
+	if err := qmpClient.Connect(); err != nil {
+		return err
+	}
+	defer func() { _ = qmpClient.Disconnect() }()
+
+	// Execute set_password command for SPICE
+	cmd := struct {
+		Execute   string                 `json:"execute"`
+		Arguments map[string]interface{} `json:"arguments"`
+	}{
+		Execute: "set_password",
+		Arguments: map[string]interface{}{
+			"protocol": "spice",
+			"password": password,
+		},
+	}
+
+	cmdBytes, err := json.Marshal(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to marshal QMP command: %w", err)
+	}
+
+	// Use qmpClient.Run directly
+	_, err = qmpClient.Run(cmdBytes)
+	if err != nil {
+		return fmt.Errorf("failed to set SPICE password: %w", err)
+	}
+	return nil
+}
+
 func (l *LimaQemuDriver) getVNCDisplayPort() (string, error) {
 	qmpSockPath := filepath.Join(l.Instance.Dir, filenames.QMPSock)
 	qmpClient, err := qmp.NewSocketMonitor("unix", qmpSockPath, 5*time.Second)
@@ -470,6 +520,36 @@ func (l *LimaQemuDriver) getVNCDisplayPort() (string, error) {
 		return "", err
 	}
 	return *info.Service, nil
+}
+
+func (l *LimaQemuDriver) getSPICEDisplayPort() (string, error) {
+	qmpSockPath := filepath.Join(l.Instance.Dir, filenames.QMPSock)
+	qmpClient, err := qmp.NewSocketMonitor("unix", qmpSockPath, 5*time.Second)
+	if err != nil {
+		return "", err
+	}
+	if err := qmpClient.Connect(); err != nil {
+		return "", err
+	}
+	defer func() { _ = qmpClient.Disconnect() }()
+	rawClient := raw.NewMonitor(qmpClient)
+
+	// Query SPICE info using raw monitor
+	info, err := rawClient.QuerySpice()
+	if err != nil {
+		return "", fmt.Errorf("failed to query SPICE: %w", err)
+	}
+
+	if info.Port == nil || *info.Port == 0 {
+		return "", fmt.Errorf("SPICE port not available")
+	}
+
+	host := "127.0.0.1"
+	if info.Host != nil && *info.Host != "" {
+		host = *info.Host
+	}
+
+	return fmt.Sprintf("%s:%d", host, *info.Port), nil
 }
 
 func (l *LimaQemuDriver) removeVNCFiles() error {
@@ -705,7 +785,43 @@ func (l *LimaQemuDriver) Delete(_ context.Context) error {
 }
 
 func (l *LimaQemuDriver) RunGUI() error {
+	// Check if SPICE display is configured
+	if l.Instance.Config.Video.Display != nil && strings.HasPrefix(*l.Instance.Config.Video.Display, "spice") {
+		return l.launchSPICEViewer()
+	}
+	// For other display types (VNC, etc.), do nothing - user should use their own viewer
 	return nil
+}
+
+func (l *LimaQemuDriver) launchSPICEViewer() error {
+	ctx := context.Background()
+
+	// Get SPICE connection info from display configuration
+	conn, err := spiceclient.GetConnectionInfo(*l.Instance.Config.Video.Display)
+	if err != nil {
+		// If we can't parse from config, try querying QMP
+		port, err := l.getSPICEDisplayPort()
+		if err != nil {
+			return fmt.Errorf("failed to get SPICE connection info: %w", err)
+		}
+		// Parse host:port format
+		parts := strings.Split(port, ":")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid SPICE port format: %s", port)
+		}
+		conn = &spiceclient.Connection{
+			Host: parts[0],
+			Port: parts[1],
+		}
+	}
+
+	// Enable audio if configured
+	if l.Instance.Config.Video.SPICE.Audio != nil && *l.Instance.Config.Video.SPICE.Audio {
+		conn.Audio = true
+	}
+
+	logrus.Infof("Launching SPICE viewer for %s:%s", conn.Host, conn.Port)
+	return spiceclient.LaunchViewer(ctx, conn)
 }
 
 func (l *LimaQemuDriver) Register(_ context.Context) error {

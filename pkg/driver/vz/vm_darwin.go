@@ -211,6 +211,11 @@ func createVM(ctx context.Context, inst *limatype.Instance) (*vz.VirtualMachine,
 		return nil, err
 	}
 
+	// Attach SPICE agent for clipboard sharing (requires macOS 13+)
+	if err = attachSpiceAgent(inst, vmConfig); err != nil {
+		return nil, err
+	}
+
 	if err = attachFolderMounts(inst, vmConfig); err != nil {
 		return nil, err
 	}
@@ -550,11 +555,21 @@ func attachDisks(ctx context.Context, inst *limatype.Instance, vmConfig *vz.Virt
 func attachDisplay(inst *limatype.Instance, vmConfig *vz.VirtualMachineConfiguration) error {
 	switch *inst.Config.Video.Display {
 	case "vz", "default":
+		width := 1920
+		height := 1200
+
+		if inst.Config.Video.VZ.Width != nil {
+			width = *inst.Config.Video.VZ.Width
+		}
+		if inst.Config.Video.VZ.Height != nil {
+			height = *inst.Config.Video.VZ.Height
+		}
+
 		graphicsDeviceConfiguration, err := vz.NewVirtioGraphicsDeviceConfiguration()
 		if err != nil {
 			return err
 		}
-		scanoutConfiguration, err := vz.NewVirtioGraphicsScanoutConfiguration(1920, 1200)
+		scanoutConfiguration, err := vz.NewVirtioGraphicsScanoutConfiguration(int64(width), int64(height))
 		if err != nil {
 			return err
 		}
