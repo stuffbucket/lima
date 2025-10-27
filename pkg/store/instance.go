@@ -145,6 +145,7 @@ func Inspect(ctx context.Context, instName string) (*limatype.Instance, error) {
 		inst.Errors = append(inst.Errors, err)
 	}
 	inst.Param = y.Param
+
 	return inst, nil
 }
 
