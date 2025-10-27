@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/lima-vm/lima/v2/pkg/guestagent/api"
+	"github.com/lima-vm/lima/v2/pkg/guestagent/gui"
 	"github.com/lima-vm/lima/v2/pkg/guestagent/kubernetesservice"
 	"github.com/lima-vm/lima/v2/pkg/guestagent/sockets"
 	"github.com/lima-vm/lima/v2/pkg/guestagent/ticker"
@@ -209,6 +210,8 @@ func (a *agent) Info(ctx context.Context) (*api.Info, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Add GUI information
+	info.Gui = gui.DetectGUIInfo(ctx)
 	return &info, nil
 }
 
