@@ -15,6 +15,15 @@ service GuestService {
 
 message Info {
   repeated IPPort local_ports = 1;
+  GUIInfo gui = 2;
+}
+
+message GUIInfo {
+  string display_server = 1; // "X11", "Wayland", "none"
+  bool session_active = 2;    // Whether a GUI session is running
+  string resolution = 3;       // Current display resolution, e.g., "1920x1080"
+  int64 idle_time_ms = 4;     // Milliseconds since last user activity
+  repeated string displays = 5; // Display names/identifiers (e.g., ":0", "wayland-0")
 }
 
 message Event {
