@@ -349,10 +349,16 @@ func (l *LimaVzDriver) RunGUI() error {
 	// Set window title to instance name
 	title := fmt.Sprintf("Lima: %s", l.Instance.Name)
 
+	// Pass logical dimensions to StartGraphicApplication
+	// VZ will automatically apply the backing scale factor (e.g., 2x on Retina displays)
+	// The scanout resolution (set in vm_darwin.go) defines the guest's display resolution,
+	// while these dimensions control the actual window size on the host.
+	// By matching them, the window content area will fit the guest display without scrollbars.
 	return l.machine.StartGraphicApplication(
 		float64(width),
 		float64(height),
 		vz.WithWindowTitle(title),
+		vz.WithController(true),
 	)
 }
 

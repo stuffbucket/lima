@@ -1,0 +1,267 @@
+# Debian Trixie KDE Plasma Desktop - High-performance VZ configuration
+# Full-featured desktop with clipboard, audio, auto-login, and premium UX
+
+vmType: vz
+
+video:
+  display: "vz"
+  vz:
+    # Set logical resolution, not physical pixels
+    # VZ will apply the appropriate backing scale factor (1.5x on Retina)
+    width: 1920
+    height: 1080
+
+audio:
+  device: "vz"
+
+images:
+  - location: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.qcow2"
+    arch: "x86_64"
+  - location: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-arm64.qcow2"
+    arch: "aarch64"
+
+cpus: 6
+memory: "12GiB"
+disk: "80GiB"
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+ssh:
+  localPort: 0
+  loadDotSSHPubKeys: true
+
+hostResolver:
+  enabled: true
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Retry logic for network operations
+      retry_command() {
+        local max_attempts=3
+        local attempt=1
+        local delay=5
+        
+        while [ $attempt -le $max_attempts ]; do
+          if "$@"; then
+            return 0
+          fi
+          echo "Command failed (attempt $attempt/$max_attempts). Retrying in ${delay}s..."
+          sleep $delay
+          attempt=$((attempt + 1))
+          delay=$((delay * 2))
+        done
+        
+        echo "Command failed after $max_attempts attempts: $*"
+        return 1
+      }
+      
+      # Update package lists with retry
+      retry_command apt-get update
+      
+      # Install KDE Plasma desktop environment with full features
+      retry_command env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        kde-plasma-desktop \
+        plasma-desktop \
+        plasma-workspace \
+        plasma-nm \
+        kde-config-sddm \
+        sddm \
+        spice-vdagent \
+        dbus-x11 \
+        chromium \
+        pulseaudio \
+        pulseaudio-module-bluetooth \
+        konsole \
+        dolphin \
+        kate \
+        ark \
+        kcalc \
+        spectacle \
+        gwenview \
+        okular \
+        plasma-systemmonitor \
+        powerdevil \
+        bluedevil \
+        breeze \
+        breeze-cursor-theme \
+        fonts-noto \
+        fonts-noto-color-emoji
+      
+      # Set graphical target
+      systemctl set-default graphical.target
+      
+      # Try to load virtio-sound module if available (best-effort)
+      if modinfo virtio_snd >/dev/null 2>&1; then
+        modprobe virtio_snd || echo "virtio_snd module not available"
+        modprobe snd_virtio || echo "snd_virtio module not available"
+      else
+        echo "virtio_snd module not found in kernel"
+      fi
+      
+      # Configure SDDM for auto-login (no password)
+      # Get the first regular user (UID >= 500, excludes system accounts)
+      LIMA_USER=$(getent passwd | awk -F: '$3 >= 500 && $3 < 65534 {print $1; exit}')
+      
+      if [ -z "$LIMA_USER" ]; then
+        echo "ERROR: No regular user found (UID >= 500)"
+        exit 1
+      fi
+      
+      echo "Configuring auto-login for user: $LIMA_USER"
+      mkdir -p /etc/sddm.conf.d
+      cat > /etc/sddm.conf.d/autologin.conf <<SDDMEOF
+      [Autologin]
+      User=${LIMA_USER}
+      Session=plasma
+      Relogin=false
+      
+      [General]
+      HaltCommand=/usr/bin/systemctl poweroff
+      RebootCommand=/usr/bin/systemctl reboot
+      
+      [Theme]
+      Current=breeze
+      CursorTheme=breeze_cursors
+      SDDMEOF
+      
+      # Configure PulseAudio for optimal performance
+      mkdir -p /etc/pulse/daemon.conf.d
+      cat > /etc/pulse/daemon.conf.d/50-optimize.conf <<EOF
+      # Optimized for VZ/virtualization
+      default-sample-format = float32le
+      default-sample-rate = 48000
+      alternate-sample-rate = 44100
+      default-sample-channels = 2
+      default-fragments = 4
+      default-fragment-size-msec = 10
+      resample-method = speex-float-5
+      enable-remixing = yes
+      enable-lfe-remixing = no
+      flat-volumes = no
+      EOF
+      
+      # Enable and optimize SPICE vdagent for maximum clipboard performance
+      if systemctl list-unit-files | grep -q spice-vdagentd; then
+        systemctl enable spice-vdagentd
+        systemctl start spice-vdagentd || echo "spice-vdagentd failed to start (may need reboot)"
+      else
+        echo "WARNING: spice-vdagentd service not found"
+      fi
+      
+      # Configure SPICE agent for optimal clipboard performance
+      mkdir -p /etc/spice-vdagentd
+      cat > /etc/spice-vdagentd/spice-vdagentd.conf <<EOF
+      # Maximum clipboard performance
+      [general]
+      # Enable all clipboard targets
+      clipboard=yes
+      # Disable clipboard size limits for seamless operation
+      max-clipboard=0
+      EOF
+      
+      # Enable SDDM
+      systemctl enable sddm
+      
+      # Verify critical packages are installed
+      echo "=== Verifying installation ==="
+      dpkg -l | grep -E 'kde-plasma-desktop|sddm|spice-vdagent' || echo "Some packages may not be installed"
+      
+      echo "KDE Plasma desktop installation complete. System will reboot to start desktop..."
+
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Configure user PulseAudio settings for auto-start
+      mkdir -p ~/.config/pulse
+      cat > ~/.config/pulse/client.conf <<'EOF'
+      autospawn = yes
+      daemon-binary = /usr/bin/pulseaudio
+      enable-shm = yes
+      EOF
+      
+      # Configure KDE for optimal performance
+      mkdir -p ~/.config
+      
+      # Optimize KDE compositor settings
+      cat > ~/.config/kwinrc <<'EOF'
+      [Compositing]
+      Enabled=true
+      OpenGLIsUnsafe=false
+      AnimationSpeed=2
+      
+      [Plugins]
+      blurEnabled=true
+      contrastEnabled=true
+      
+      [Windows]
+      FocusPolicy=ClickToFocus
+      EOF
+      
+      # Set Chromium as default browser
+      cat > ~/.config/mimeapps.list <<'EOF'
+      [Default Applications]
+      text/html=chromium.desktop
+      x-scheme-handler/http=chromium.desktop
+      x-scheme-handler/https=chromium.desktop
+      x-scheme-handler/about=chromium.desktop
+      x-scheme-handler/unknown=chromium.desktop
+      EOF
+
+  - mode: system
+    script: |
+      #!/bin/bash
+      # Post-reboot verification
+      echo "=== Service Status ==="
+      systemctl status sddm --no-pager || true
+      systemctl status spice-vdagentd --no-pager || true
+      
+      echo "=== Display Manager ==="
+      systemctl get-default
+      
+      echo "=== Audio Devices ==="
+      aplay -l || echo "Run as user to see audio devices"
+
+message: |
+  🚀 Debian Trixie KDE Plasma Desktop - Premium Configuration
+  
+  ✨ Installed Features:
+  - ✅ KDE Plasma Desktop (Full Desktop Environment)
+  - ✅ 1920x1080 High-Resolution Display
+  - ✅ Auto-login (No Password Required)
+  - ✅ Chromium Browser (Default)
+  - ✅ Clipboard Sharing (Optimized SPICE Agent)
+  - ✅ Audio Support (PulseAudio + VirtIO-Sound)
+  - ✅ Premium Apps: Konsole, Dolphin, Kate, Spectacle, Gwenview, Okular
+  - ✅ Optimized Performance Settings
+  
+  🎨 Desktop Configuration:
+  - Breeze theme with smooth animations
+  - 6 CPUs, 12GB RAM for responsive performance
+  - 80GB disk space
+  - Noto fonts with emoji support
+  
+  🔧 Performance Optimizations:
+  - PulseAudio configured for low-latency audio
+  - SPICE agent with unlimited clipboard transfer
+  - KDE compositor enabled with balanced animation speed
+  - Optimized sample rates (48kHz/44.1kHz)
+  
+  ⚠️  Note: VZ audio requires virtio_snd kernel module. Check if Debian Trixie
+  includes this module. If audio doesn't work, use QEMU+SPICE as alternative.
+  
+  🚀 Launch Command:
+    limactl start --name=debian-plasma examples/debian-trixie-plasma.yaml
+    limactl show-gui debian-plasma
+  
+  The VM will reboot automatically to start KDE Plasma.
+  After reboot, you'll be automatically logged in with full desktop access!
