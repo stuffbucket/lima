@@ -13,20 +13,18 @@ import (
 
 // attachSpiceAgent configures SPICE agent for clipboard sharing
 // This enables bidirectional clipboard sharing between host and guest
+// SPICE agent requires a display to be useful
 func attachSpiceAgent(inst *limatype.Instance, vmConfig *vz.VirtualMachineConfiguration) error {
-	// Only configure SPICE agent if display is enabled
+	// SPICE agent only makes sense with a display
 	if inst.Config.Video.Display == nil || *inst.Config.Video.Display == "none" {
 		return nil
 	}
 
-	// Check if clipboard sharing is enabled (default: true for VZ display)
-	enableClipboard := true
-	if inst.Config.Video.VZ.DisableClipboard != nil {
-		enableClipboard = !*inst.Config.Video.VZ.DisableClipboard
-	}
-
-	if !enableClipboard {
-		logrus.Debug("Clipboard sharing disabled in configuration")
+	// Check clipboard configuration
+	// Default: enabled when display is present
+	// Respect explicit user configuration (true or false)
+	if inst.Config.Video.Clipboard != nil && !*inst.Config.Video.Clipboard {
+		logrus.Debug("Clipboard sharing explicitly disabled in configuration")
 		return nil
 	}
 

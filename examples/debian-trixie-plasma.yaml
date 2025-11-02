@@ -74,7 +74,6 @@ provision:
         plasma-nm \
         kde-config-sddm \
         sddm \
-        spice-vdagent \
         dbus-x11 \
         chromium \
         pulseaudio \
@@ -148,31 +147,12 @@ provision:
       flat-volumes = no
       EOF
       
-      # Enable and optimize SPICE vdagent for maximum clipboard performance
-      if systemctl list-unit-files | grep -q spice-vdagentd; then
-        systemctl enable spice-vdagentd
-        systemctl start spice-vdagentd || echo "spice-vdagentd failed to start (may need reboot)"
-      else
-        echo "WARNING: spice-vdagentd service not found"
-      fi
-      
-      # Configure SPICE agent for optimal clipboard performance
-      mkdir -p /etc/spice-vdagentd
-      cat > /etc/spice-vdagentd/spice-vdagentd.conf <<EOF
-      # Maximum clipboard performance
-      [general]
-      # Enable all clipboard targets
-      clipboard=yes
-      # Disable clipboard size limits for seamless operation
-      max-clipboard=0
-      EOF
-      
       # Enable SDDM
       systemctl enable sddm
       
       # Verify critical packages are installed
       echo "=== Verifying installation ==="
-      dpkg -l | grep -E 'kde-plasma-desktop|sddm|spice-vdagent' || echo "Some packages may not be installed"
+      dpkg -l | grep -E 'kde-plasma-desktop|sddm' || echo "Some packages may not be installed"
       
       echo "KDE Plasma desktop installation complete. System will reboot to start desktop..."
 
@@ -223,7 +203,6 @@ provision:
       # Post-reboot verification
       echo "=== Service Status ==="
       systemctl status sddm --no-pager || true
-      systemctl status spice-vdagentd --no-pager || true
       
       echo "=== Display Manager ==="
       systemctl get-default
@@ -239,7 +218,7 @@ message: |
   - ✅ 1920x1080 High-Resolution Display
   - ✅ Auto-login (No Password Required)
   - ✅ Chromium Browser (Default)
-  - ✅ Clipboard Sharing (Optimized SPICE Agent)
+  - ✅ Clipboard Sharing (Auto-enabled by Guest Agent)
   - ✅ Audio Support (PulseAudio + VirtIO-Sound)
   - ✅ Premium Apps: Konsole, Dolphin, Kate, Spectacle, Gwenview, Okular
   - ✅ Optimized Performance Settings
@@ -252,7 +231,7 @@ message: |
   
   🔧 Performance Optimizations:
   - PulseAudio configured for low-latency audio
-  - SPICE agent with unlimited clipboard transfer
+  - SPICE clipboard auto-enabled by guest agent
   - KDE compositor enabled with balanced animation speed
   - Optimized sample rates (48kHz/44.1kHz)
   

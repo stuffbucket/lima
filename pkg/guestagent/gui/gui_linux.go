@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/lima-vm/lima/v2/pkg/guestagent/api"
+	"github.com/lima-vm/lima/v2/pkg/guestagent/spiceservice"
 )
 
 // DetectGUIInfo detects GUI-related information from the Linux guest
@@ -44,6 +45,31 @@ func DetectGUIInfo(ctx context.Context) *api.GUIInfo {
 	// Get idle time
 	if info.SessionActive {
 		info.IdleTimeMs = getIdleTime(info.DisplayServer)
+	}
+
+	// Detect SPICE agent status for clipboard sharing
+	spiceStatus := spiceservice.DetectSpiceStatus(ctx)
+	info.Spice = &api.SpiceAgentInfo{
+		AgentInstalled: spiceStatus.AgentInstalled,
+		AgentRunning:   spiceStatus.AgentRunning,
+		VportExists:    spiceStatus.VPortExists,
+		ClipboardReady: spiceStatus.ClipboardReady,
+		ErrorMessage:   spiceStatus.ErrorMessage,
+	}
+
+	// If SPICE port exists but agent isn't running, try to auto-enable it
+	if spiceStatus.VPortExists && !spiceStatus.ClipboardReady {
+		logrus.Info("SPICE virtio port detected, attempting to enable clipboard sharing...")
+		if err := spiceservice.EnsureSpiceAgent(ctx); err != nil {
+			logrus.Warnf("Failed to auto-enable SPICE agent: %v", err)
+		} else {
+			// Re-detect status after enabling
+			spiceStatus = spiceservice.DetectSpiceStatus(ctx)
+			info.Spice.AgentInstalled = spiceStatus.AgentInstalled
+			info.Spice.AgentRunning = spiceStatus.AgentRunning
+			info.Spice.ClipboardReady = spiceStatus.ClipboardReady
+			info.Spice.ErrorMessage = spiceStatus.ErrorMessage
+		}
 	}
 
 	return info

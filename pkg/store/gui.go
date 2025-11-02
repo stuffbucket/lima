@@ -37,8 +37,8 @@ func populateGUIInfo(inst *limatype.Instance) {
 	}
 
 	// Check clipboard sharing
-	if inst.Config.Video.VZ.DisableClipboard != nil {
-		gui.ClipboardShared = !*inst.Config.Video.VZ.DisableClipboard
+	if inst.Config.Video.Clipboard != nil {
+		gui.ClipboardShared = *inst.Config.Video.Clipboard
 	} else {
 		// Default is enabled for VZ with display
 		gui.ClipboardShared = gui.Enabled && (gui.Display == "vz" || gui.Display == "default")
