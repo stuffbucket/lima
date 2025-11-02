@@ -24,6 +24,24 @@ message GUIInfo {
   string resolution = 3;       // Current display resolution, e.g., "1920x1080"
   int64 idle_time_ms = 4;     // Milliseconds since last user activity
   repeated string displays = 5; // Display names/identifiers (e.g., ":0", "wayland-0")
+  SpiceAgentInfo spice = 6;   // SPICE agent status for clipboard sharing
+  AudioInfo audio = 7;        // Audio device and driver information
+}
+
+message AudioInfo {
+  bool virtio_snd_available = 1;  // Whether virtio_snd kernel module is available
+  bool virtio_snd_loaded = 2;     // Whether virtio_snd module is loaded
+  bool audio_devices_present = 3; // Whether /dev/snd devices exist
+  repeated string audio_cards = 4; // List of audio cards from /proc/asound/cards
+  string error_message = 5;       // Error details if audio is not working
+}
+
+message SpiceAgentInfo {
+  bool agent_installed = 1;   // Whether spice-vdagent is installed
+  bool agent_running = 2;     // Whether spice-vdagentd service is active
+  bool vport_exists = 3;      // Whether virtio console port exists
+  bool clipboard_ready = 4;   // Whether clipboard sharing is functional
+  string error_message = 5;   // Error details if clipboard is not ready
 }
 
 message Event {

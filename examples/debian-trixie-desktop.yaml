@@ -49,7 +49,6 @@ provision:
         xfce4 \
         xfce4-goodies \
         lightdm \
-        spice-vdagent \
         dbus-x11 \
         firefox-esr \
         pulseaudio
@@ -73,10 +72,6 @@ provision:
       autologin-user-timeout=0
       EOF
       
-      # Enable and start SPICE vdagent for clipboard sharing
-      systemctl enable spice-vdagentd
-      systemctl start spice-vdagentd
-      
       # Ensure LightDM is enabled
       systemctl enable lightdm
       
@@ -87,14 +82,13 @@ provision:
       #!/bin/bash
       # This runs after reboot
       systemctl status lightdm || true
-      systemctl status spice-vdagentd || true
 
 message: |
   Debian Trixie Desktop with VZ display/audio/clipboard configured.
   
   XFCE desktop environment has been installed with:
   - ✅ Graphical display (1440x900)
-  - ✅ Clipboard sharing via SPICE agent
+  - ✅ Clipboard sharing (auto-enabled by guest agent)
   - ✅ Auto-login enabled (no password required)
   - ✅ Firefox ESR browser
   - ⚠️  Audio hardware present (virtio-sound)

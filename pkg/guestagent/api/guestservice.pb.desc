@@ -1,10 +1,11 @@
 
-Ù
+Ò
+
 guestservice.protogoogle/protobuf/empty.protogoogle/protobuf/timestamp.proto"L
 Info(
 local_ports (2.IPPortR
 localPorts
-gui (2.GUIInfoRgui"µ
+gui (2.GUIInfoRgui"Ü
 GUIInfo%
 display_server (	RdisplayServer%
 session_active (RsessionActive
@@ -13,7 +14,14 @@ resolution (	R
 resolution 
 idle_time_ms (R
 idleTimeMs
-displays (	Rdisplays"½
+displays (	Rdisplays%
+spice (2.SpiceAgentInfoRspice"Ï
+SpiceAgentInfo'
+agent_installed (RagentInstalled#
+agent_running (RagentRunning!
+vport_exists (RvportExists'
+clipboard_ready (RclipboardReady#
+error_message (	RerrorMessage"½
 Event.
 time (2.google.protobuf.TimestampRtime3
 added_local_ports (2.IPPortRaddedLocalPorts7

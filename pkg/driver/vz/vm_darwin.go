@@ -564,6 +564,9 @@ func attachDisplay(inst *limatype.Instance, vmConfig *vz.VirtualMachineConfigura
 		if inst.Config.Video.VZ.Height != nil {
 			height = *inst.Config.Video.VZ.Height
 		}
+		if inst.Config.Video.VZ.PixelsPerInch != nil {
+			logrus.Warnf("video.vz.pixelsPerInch is not yet supported by Apple Virtualization.framework")
+		}
 
 		graphicsDeviceConfiguration, err := vz.NewVirtioGraphicsDeviceConfiguration()
 		if err != nil {
@@ -573,6 +576,7 @@ func attachDisplay(inst *limatype.Instance, vmConfig *vz.VirtualMachineConfigura
 		if err != nil {
 			return err
 		}
+
 		graphicsDeviceConfiguration.SetScanouts(scanoutConfiguration)
 
 		vmConfig.SetGraphicsDevicesVirtualMachineConfiguration([]vz.GraphicsDeviceConfiguration{
@@ -640,18 +644,49 @@ func attachFolderMounts(inst *limatype.Instance, vmConfig *vz.VirtualMachineConf
 func attachAudio(inst *limatype.Instance, config *vz.VirtualMachineConfiguration) error {
 	switch *inst.Config.Audio.Device {
 	case "vz", "default":
-		outputStream, err := vz.NewVirtioSoundDeviceHostOutputStreamConfiguration()
-		if err != nil {
-			return err
+		// Check what's enabled (default: output only, no input/microphone)
+		inputEnabled := false
+		outputEnabled := true
+
+		if inst.Config.Audio.VZ.InputEnabled != nil {
+			inputEnabled = *inst.Config.Audio.VZ.InputEnabled
 		}
+		if inst.Config.Audio.VZ.OutputEnabled != nil {
+			outputEnabled = *inst.Config.Audio.VZ.OutputEnabled
+		}
+
 		soundDeviceConfiguration, err := vz.NewVirtioSoundDeviceConfiguration()
 		if err != nil {
 			return err
 		}
-		soundDeviceConfiguration.SetStreams(outputStream)
-		config.SetAudioDevicesVirtualMachineConfiguration([]vz.AudioDeviceConfiguration{
-			soundDeviceConfiguration,
-		})
+
+		var streams []vz.VirtioSoundDeviceStreamConfiguration
+
+		if outputEnabled {
+			outputStream, err := vz.NewVirtioSoundDeviceHostOutputStreamConfiguration()
+			if err != nil {
+				return err
+			}
+			streams = append(streams, outputStream)
+			logrus.Debug("VZ audio output enabled")
+		}
+
+		if inputEnabled {
+			inputStream, err := vz.NewVirtioSoundDeviceHostInputStreamConfiguration()
+			if err != nil {
+				return err
+			}
+			streams = append(streams, inputStream)
+			logrus.Info("VZ audio input (microphone) enabled")
+		}
+
+		if len(streams) > 0 {
+			soundDeviceConfiguration.SetStreams(streams...)
+			config.SetAudioDevicesVirtualMachineConfiguration([]vz.AudioDeviceConfiguration{
+				soundDeviceConfiguration,
+			})
+		}
+
 		return nil
 	case "", "none":
 		return nil
