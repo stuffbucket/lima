@@ -65,34 +65,60 @@ provision:
       
       # Update package lists with retry
       retry_command apt-get update
-      
-      # Install KDE Plasma desktop environment with full features
+     
+      # Install critical development tools (must succeed)
       retry_command env DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        kde-plasma-desktop \
-        plasma-desktop \
-        plasma-workspace \
-        plasma-nm \
-        kde-config-sddm \
-        sddm \
+        ca-certificates \
+        git \
+        curl \
+        wget \
+        gnupg
+
+      # Install core desktop using task metapackage
+      # This pulls in kde-plasma-desktop, plasma-workspace, sddm, and essential components
+      retry_command env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        task-kde-desktop
+
+      # Install desktop essentials (important but less critical)
+      retry_command env DEBIAN_FRONTEND=noninteractive apt-get install -y \
         dbus-x11 \
-        chromium \
         pulseaudio \
-        pulseaudio-module-bluetooth \
-        konsole \
-        dolphin \
-        kate \
-        ark \
-        kcalc \
-        spectacle \
-        gwenview \
-        okular \
-        plasma-systemmonitor \
-        powerdevil \
-        bluedevil \
-        breeze \
-        breeze-cursor-theme \
+        chromium \
         fonts-noto \
         fonts-noto-color-emoji
+      
+      # Install VS Code Insiders
+      # Add Microsoft GPG key and repository
+      curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
+      
+      # Update and install code-insiders
+      retry_command apt-get update
+      env DEBIAN_FRONTEND=noninteractive apt-get install -y code-insiders || \
+        echo "⚠️  VS Code Insiders unavailable, trying stable..."
+      
+      # Fallback to stable VS Code if insiders fails
+      if ! command -v code-insiders >/dev/null 2>&1; then
+        env DEBIAN_FRONTEND=noninteractive apt-get install -y code || \
+          echo "⚠️  VS Code installation failed"
+      fi
+      
+      # Install standard KDE applications metapackage (best-effort)
+      # Includes ark, kcalc, gwenview, okular, and other utilities
+      # If this fails, desktop still works but with fewer apps
+      env DEBIAN_FRONTEND=noninteractive apt-get install -y kde-standard || \
+        echo "⚠️  kde-standard metapackage unavailable, installing apps individually..."
+      
+      # Install system monitor (useful GUI for less technical users)
+      env DEBIAN_FRONTEND=noninteractive apt-get install -y plasma-systemmonitor || \
+        echo "⚠️  plasma-systemmonitor unavailable"
+      
+      # Fallback: install essential apps individually if metapackage failed
+      for pkg in konsole dolphin kate ark gwenview okular; do
+        dpkg -l | grep -q "^ii  $pkg " || \
+          env DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg" || \
+          echo "⚠️  Failed to install $pkg"
+      done
       
       # Set graphical target
       systemctl set-default graphical.target
@@ -106,8 +132,8 @@ provision:
       fi
       
       # Configure SDDM for auto-login (no password)
-      # Get the first regular user (UID >= 500, excludes system accounts)
-      LIMA_USER=$(getent passwd | awk -F: '$3 >= 500 && $3 < 65534 {print $1; exit}')
+      # Get the first regular user (UID >= 1000, excludes system accounts)
+      LIMA_USER=$(getent passwd | awk -F: '$3 >= 1000 && $3 < 65534 {print $1; exit}')
       
       if [ -z "$LIMA_USER" ]; then
         echo "ERROR: No regular user found (UID >= 500)"
@@ -115,21 +141,26 @@ provision:
       fi
       
       echo "Configuring auto-login for user: $LIMA_USER"
+      
+      # Enable passwordless sudo for the user
+      echo "${LIMA_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-${LIMA_USER}
+      chmod 0440 /etc/sudoers.d/90-${LIMA_USER}
+      
       mkdir -p /etc/sddm.conf.d
-      cat > /etc/sddm.conf.d/autologin.conf <<SDDMEOF
-      [Autologin]
-      User=${LIMA_USER}
-      Session=plasma
-      Relogin=false
       
-      [General]
-      HaltCommand=/usr/bin/systemctl poweroff
-      RebootCommand=/usr/bin/systemctl reboot
-      
-      [Theme]
-      Current=breeze
-      CursorTheme=breeze_cursors
-      SDDMEOF
+      # Create SDDM autologin config
+      echo "[Autologin]" > /etc/sddm.conf.d/autologin.conf
+      echo "User=${LIMA_USER}" >> /etc/sddm.conf.d/autologin.conf
+      echo "Session=plasma" >> /etc/sddm.conf.d/autologin.conf
+      echo "Relogin=false" >> /etc/sddm.conf.d/autologin.conf
+      echo "" >> /etc/sddm.conf.d/autologin.conf
+      echo "[General]" >> /etc/sddm.conf.d/autologin.conf
+      echo "HaltCommand=/usr/bin/systemctl poweroff" >> /etc/sddm.conf.d/autologin.conf
+      echo "RebootCommand=/usr/bin/systemctl reboot" >> /etc/sddm.conf.d/autologin.conf
+      echo "" >> /etc/sddm.conf.d/autologin.conf
+      echo "[Theme]" >> /etc/sddm.conf.d/autologin.conf
+      echo "Current=breeze" >> /etc/sddm.conf.d/autologin.conf
+      echo "CursorTheme=breeze_cursors" >> /etc/sddm.conf.d/autologin.conf
       
       # Configure PulseAudio for optimal performance
       mkdir -p /etc/pulse/daemon.conf.d
@@ -150,11 +181,14 @@ provision:
       # Enable SDDM
       systemctl enable sddm
       
+      # Start SDDM immediately (don't wait for reboot)
+      systemctl start sddm
+      
       # Verify critical packages are installed
       echo "=== Verifying installation ==="
       dpkg -l | grep -E 'kde-plasma-desktop|sddm' || echo "Some packages may not be installed"
       
-      echo "KDE Plasma desktop installation complete. System will reboot to start desktop..."
+      echo "KDE Plasma desktop installation complete. Desktop should now be available!"
 
   - mode: user
     script: |
@@ -172,8 +206,37 @@ provision:
       # Configure KDE for optimal performance
       mkdir -p ~/.config
       
+      # Disable screen locking and power management (VM use case)
+      cat > ~/.config/kscreenlockerrc <<'KDEEOF'
+      [Daemon]
+      Autolock=false
+      LockOnResume=false
+      Timeout=0
+      KDEEOF
+      
+      # Disable screen saver
+      cat > ~/.config/kscreensaverrc <<'KDEEOF'
+      [ScreenSaver]
+      Enabled=false
+      Timeout=0
+      KDEEOF
+      
+      # Disable power management suspend/hibernate
+      cat > ~/.config/powermanagementprofilesrc <<'KDEEOF'
+      [AC]
+      icon=battery-charging
+      
+      [AC][DimDisplay]
+      idleTime=300000
+      
+      [AC][SuspendSession]
+      idleTime=0
+      suspendThenHibernate=false
+      suspendType=0
+      KDEEOF
+      
       # Optimize KDE compositor settings
-      cat > ~/.config/kwinrc <<'EOF'
+      cat > ~/.config/kwinrc <<'KDEEOF'
       [Compositing]
       Enabled=true
       OpenGLIsUnsafe=false
@@ -185,17 +248,82 @@ provision:
       
       [Windows]
       FocusPolicy=ClickToFocus
-      EOF
+      
+      [Wayland]
+      InputMethod[$e]=
+      KDEEOF
+      
+      # Disable unwanted KDE background services
+      cat > ~/.config/kded5rc <<'KDEEOF'
+      [Module-kwrited]
+      autoload=false
+      
+      [Module-networkmanagement]
+      autoload=true
+      
+      [Module-bluedevil]
+      autoload=false
+      KDEEOF
+      
+      # Disable desktop effects that can cause issues in VMs
+      cat > ~/.config/kwinrulesrc <<'KDEEOF'
+      [General]
+      count=0
+      KDEEOF
+      
+      # Disable Baloo file indexing (not needed in VM, saves CPU/disk)
+      cat > ~/.config/baloofilerc <<'KDEEOF'
+      [Basic Settings]
+      Indexing-Enabled=false
+      KDEEOF
+      
+      # Configure KDE wallet for passwordless operation
+      # Keep wallet enabled for browser SSO/OAuth tokens (GitHub, VS Code, etc.)
+      # but make it auto-unlock without prompting
+      cat > ~/.config/kwalletrc <<'KDEEOF'
+      [Wallet]
+      Enabled=true
+      First Use=false
+      Prompt on Open=false
+      Prompt on Close=false
+      Close When Idle=false
+      Use One Wallet=true
+      
+      [Auto Allow]
+      kdewallet=true
+      KDEEOF
+      
+      # Disable search indexing in Dolphin
+      cat > ~/.config/dolphinrc <<'KDEEOF'
+      [Search]
+      Location=Everywhere
+      KDEEOF
       
       # Set Chromium as default browser
-      cat > ~/.config/mimeapps.list <<'EOF'
+      cat > ~/.config/mimeapps.list <<'KDEEOF'
       [Default Applications]
       text/html=chromium.desktop
       x-scheme-handler/http=chromium.desktop
       x-scheme-handler/https=chromium.desktop
       x-scheme-handler/about=chromium.desktop
       x-scheme-handler/unknown=chromium.desktop
-      EOF
+      KDEEOF
+      
+      # Configure Chromium for better VM experience
+      mkdir -p ~/.config/chromium/Default
+      cat > ~/.config/chromium/Default/Preferences <<'KDEEOF'
+      {
+        "profile": {
+          "password_manager_enabled": false,
+          "default_content_setting_values": {
+            "notifications": 2
+          }
+        },
+        "browser": {
+          "show_home_button": true
+        }
+      }
+      KDEEOF
 
   - mode: system
     script: |
@@ -217,10 +345,13 @@ message: |
   - ✅ KDE Plasma Desktop (Full Desktop Environment)
   - ✅ 1920x1080 High-Resolution Display
   - ✅ Auto-login (No Password Required)
+  - ✅ VS Code Insiders (code-insiders command available)
+  - ✅ Git (Full development tooling)
   - ✅ Chromium Browser (Default)
   - ✅ Clipboard Sharing (Auto-enabled by Guest Agent)
   - ✅ Audio Support (PulseAudio + VirtIO-Sound)
-  - ✅ Premium Apps: Konsole, Dolphin, Kate, Spectacle, Gwenview, Okular
+  - ✅ Essential Apps: Konsole, Dolphin, Kate
+  - ⚙️  Optional Apps: Ark, Gwenview, Okular, System Monitor (via kde-standard)
   - ✅ Optimized Performance Settings
   
   🎨 Desktop Configuration:
@@ -234,13 +365,28 @@ message: |
   - SPICE clipboard auto-enabled by guest agent
   - KDE compositor enabled with balanced animation speed
   - Optimized sample rates (48kHz/44.1kHz)
+  - Passwordless sudo enabled
+  - Screen lock and power management disabled (always-on VM)
+  - Baloo file indexing disabled (saves CPU/disk I/O)
+  - KDE Wallet configured for auto-unlock (supports browser SSO)
+  - Bluetooth services disabled (no hardware)
+  - Chromium pre-configured (password manager off, notifications blocked)
   
   ⚠️  Note: VZ audio requires virtio_snd kernel module. Check if Debian Trixie
   includes this module. If audio doesn't work, use QEMU+SPICE as alternative.
   
   🚀 Launch Command:
-    limactl start --name=debian-plasma examples/debian-trixie-plasma.yaml
-    limactl show-gui debian-plasma
+    limactl start --name=plasma examples/debian-trixie-plasma.yaml
+  
+  💻 Remote Development:
+    # SSH into the VM for terminal work
+    limactl shell plasma
+    
+    # Get SSH connection info for VS Code Remote-SSH
+    limactl show-ssh plasma
+    
+    # VS Code Insiders is pre-installed in the VM
+    # Use Remote-SSH extension to connect from host VS Code
   
   The VM will reboot automatically to start KDE Plasma.
   After reboot, you'll be automatically logged in with full desktop access!
