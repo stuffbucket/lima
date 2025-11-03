@@ -146,6 +146,11 @@ provision:
       echo "${LIMA_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-${LIMA_USER}
       chmod 0440 /etc/sudoers.d/90-${LIMA_USER}
       
+      # Set a default password for the user (useful if auto-login fails or for manual login)
+      # Default password: "lima" (users should change this if needed)
+      echo "${LIMA_USER}:lima" | chpasswd
+      echo "Set default password 'lima' for user ${LIMA_USER}"
+      
       mkdir -p /etc/sddm.conf.d
       
       # Create SDDM autologin config
