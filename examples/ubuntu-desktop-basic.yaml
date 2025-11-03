@@ -40,48 +40,51 @@ provision:
     script: |
       #!/bin/bash
       set -eux -o pipefail
-      
+
       # Try to load virtio-sound module if available
       if modinfo virtio_snd >/dev/null 2>&1; then
         modprobe virtio_snd || true
         modprobe snd_virtio || true
       fi
-      
+
       # Configure LightDM auto-login for GUI
       if command -v lightdm >/dev/null 2>&1; then
-        # Get the first regular user (UID >= 500, excludes system accounts)
-        LIMA_USER=$(getent passwd | awk -F: '$3 >= 500 && $3 < 65534 {print $1; exit}')
-        
+        # Use LIMA_CIDATA_USER which is already set by Lima's boot.sh
+        if [ -z "${LIMA_CIDATA_USER:-}" ]; then
+          echo "ERROR: LIMA_CIDATA_USER not set"
+          exit 1
+        fi
+
         # Set a default password for the user (useful if auto-login fails or for manual login)
         # Default password: "lima" (users should change this if needed)
-        echo "${LIMA_USER}:lima" | chpasswd
-        echo "Set default password 'lima' for user ${LIMA_USER}"
-        
+        echo "${LIMA_CIDATA_USER}:lima" | chpasswd
+        echo "Set default password 'lima' for user ${LIMA_CIDATA_USER}"
+
         mkdir -p /etc/lightdm/lightdm.conf.d
         cat > /etc/lightdm/lightdm.conf.d/50-autologin.conf <<EOF
       [Seat:*]
-      autologin-user=${LIMA_USER}
+      autologin-user=${LIMA_CIDATA_USER}
       autologin-user-timeout=0
       EOF
         systemctl restart lightdm || true
       fi
 
-message: |
+message: |-
   Basic Ubuntu with VZ display/audio configured.
-  
+
   Note: VZ audio requires virtio-sound kernel driver. Ubuntu 24.04 compiles this
   driver but doesn't ship the .ko module files. Apple Virtualization.framework
   only supports virtio-sound (no Intel HDA/AC97 alternative available).
-  
+
   Audio hardware is present but won't work until the driver is installed.
   For working audio, use QEMU+SPICE or try Fedora/Alpine distros which may
   ship the virtio_snd module.
-  
+
   To install desktop environment, SSH in and run:
     lima sudo apt-get update
     lima sudo apt-get install -y xubuntu-desktop
     lima sudo systemctl set-default graphical.target
     lima sudo systemctl reboot
-  
+
   Then launch GUI:
     limactl show-gui ubuntu-desktop
