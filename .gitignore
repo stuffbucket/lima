@@ -4,3 +4,6 @@ lima.REJECTED.yaml
 default-template.yaml
 schema-limayaml.json
 .config
+
+# macOS
+.DS_Store
