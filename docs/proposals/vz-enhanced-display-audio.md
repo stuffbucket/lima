@@ -291,3 +291,136 @@ Existing configurations continue to work without changes.
 - Audio input requires microphone permission in macOS
 - Display resolution is limited by guest OS capabilities
 - StartGraphicApplication is a Code-Hex/vz library method
+
+## Recent Enhancements (v3.0.0-20251104234922)
+
+### Window Management APIs
+
+The vz library now provides comprehensive window management:
+
+**New APIs:**
+- **`HasGUIWindow()`** - Returns true if GUI window exists (tracks lifecycle)
+- **`ShowWindow()`** - Makes window visible if it was hidden
+- **`BringWindowToFront()`** - Activates app and brings window to front
+
+**Window Close Confirmation:**
+- **`WithConfirmStopOnClose(bool)`** - Optional confirmation dialog when closing
+- Default: Shows warning that closing will stop the VM
+- Can be disabled for immediate close behavior
+
+**Implementation Details:**
+- Window lifecycle tracked via CGO callbacks
+- Thread-safe with mutex protection
+- Handles cleanup in VirtualMachine finalizer
+- `HasGUIWindow()` checks both internal state and actual window existence
+
+### Keyboard Capture Control
+
+The vz library automatically adds a **"Enable to send system hot keys to virtual machine"** menu item and toolbar button. This allows users to toggle whether system hotkeys (like Cmd+Tab, Cmd+Space) are captured by the VM or handled by macOS.
+
+**Implementation Details:**
+- Menu item and toolbar button automatically created by vz library's GUI framework
+- Initial state: `capturesSystemKeys = YES` (enabled by default)
+- Toggle behavior: Users can switch on/off during VM session via menu or toolbar
+- No Lima configuration needed - the feature is built into the VZ window
+
+**Semantic Boundary (∂S ≠ ∅):**
+- **Property**: `VZVirtualMachineView.capturesSystemKeys` (Boolean)
+- **Scope**: GUI session lifetime only (state not persisted)
+- **Impossible State**: Setting capturesSystemKeys when GUI window doesn't exist → undefined behavior
+- **Platform Dependency**: macOS-specific VZ framework feature
+
+### Integration with `limactl show-gui`
+
+Previous behavior (before fixes):
+```bash
+limactl show-gui my-vz-vm
+# Error: VZ GUI window cannot be reopened after VM startup
+```
+
+Current behavior with `HasGUIWindow()`:
+```bash
+# Start VM with GUI
+limactl start my-vz-vm
+# GUI window appears
+
+# Minimize or hide the window
+# ... do other work ...
+
+# Bring window back to foreground
+limactl show-gui my-vz-vm
+# ✅ Window comes back to front
+
+# If user closed the window:
+limactl show-gui my-vz-vm  
+# Error: GUI window was closed (VM stopped)
+# Must restart: limactl start my-vz-vm
+```
+
+**Implementation in RunGUI():**
+```go
+func (l *LimaVzDriver) RunGUI() error {
+    // Check if GUI window already exists
+    if l.machine.HasGUIWindow() {
+        // GUI exists - bring to foreground
+        return l.machine.BringWindowToFront()
+    }
+    
+    // GUI doesn't exist - create during VM startup
+    return l.machine.StartGraphicApplication(
+        width, height,
+        vz.WithWindowTitle(title),
+        vz.WithController(true),
+        vz.WithConfirmStopOnClose(true), // Show warning on close
+    )
+}
+```
+
+**Internationalization Support:**
+- Window close confirmation dialog localized for 18 locales
+- Uses Apple's `NSLocalizedString` for proper i18n
+- Follows Apple Human Interface Guidelines
+
+**Semantic Boundaries (∂S ≠ ∅):**
+
+**Temporal Discontinuity:**
+- ✅ `StartGraphicApplication()` → GUI created → `HasGUIWindow() == true` → can call `BringWindowToFront()`
+- ❌ Call `BringWindowToFront()` before `StartGraphicApplication()` → error: "GUI was never initialized"
+- ❌ Close window → VM stops (VZ framework design) → `HasGUIWindow() == false` → cannot reopen without restart
+
+**State Transitions:**
+```
+VM Not Started → StartGraphicApplication() → GUI Created → HasGUIWindow() = true
+                                                ↓
+                                         [Window can be minimized]
+                                                ↓
+                                    BringWindowToFront() → Window visible
+                                                ↓
+                                         [User closes window]
+                                                ↓
+                            Window close callback → HasGUIWindow() = false → VM Stops
+```
+
+**Interface Boundary Detection:**
+- `HasGUIWindow()`: Detects if GUI exists (solves state persistence problem across driver instances)
+- `StartGraphicApplication()`: One-time call during VM startup (calling twice → error)
+- `BringWindowToFront()`: Repeatable call for running VM with GUI
+- Closing window: Unidirectional transition to stopped state (no recovery without restart)
+
+**macOS Version Requirements:**
+- `BringWindowToFront()`: Requires macOS 12.0+ (checked by vz library)
+- `ShowWindow()`: Requires macOS 12.0+
+- `HasGUIWindow()`: Requires macOS 12.0+
+- `capturesSystemKeys`: Requires macOS 11.0+ (VZVirtualMachineView property)
+- `WithConfirmStopOnClose`: Requires macOS 12.0+
+
+**Error Handling:**
+```go
+// If GUI never created
+err := vm.BringWindowToFront()
+// Returns: "GUI was never initialized; call StartGraphicApplication first"
+
+// If window was closed (HasGUIWindow() returns false)
+hasGUI := vm.HasGUIWindow()
+// Returns: false (VM has stopped)
+```

@@ -18,25 +18,21 @@ import (
 func newShowGUICommand() *cobra.Command {
 	showGUICmd := &cobra.Command{
 		Use:   "show-gui INSTANCE",
-		Short: "Open the graphical display window for the instance",
+		Short: "Open the graphical display window for the instance.",
 		Long: `Open the graphical display window for the instance.
 
-This command launches the native display window for instances using VZ driver
-with display enabled.
+For VZ instances:
+- If the GUI window is minimized or hidden, this brings it back to the foreground
+- The window is initially created during VM startup (limactl start)
+- Closing the VZ GUI window will STOP the VM (by design in Apple's Virtualization.framework)
+- If you closed the window, you must restart the VM to see it again
 
-IMPORTANT - VZ Framework Limitation:
-The GUI window is opened during VM startup (limactl start). This command 
-cannot reopen a closed window - that would require restarting the VM. 
-Additionally, closing the VZ GUI window will STOP the VM (by design in 
-Apple's Virtualization.framework).
-
-If you need a detachable GUI that doesn't stop the VM when closed, use 
-QEMU with SPICE display instead.
+For QEMU/SPICE instances:
+- Launches a new viewer window that can be closed and reopened without affecting the VM
 
 Requirements:
 - Instance must be running
-- Instance must use VZ driver (vmType: vz)
-- Display must be enabled (video.display: "vz" or "default")`,
+- Display must be enabled (VZ: video.display="vz", QEMU: video.display with SPICE)`,
 		Args:              WrapArgsError(cobra.ExactArgs(1)),
 		RunE:              showGUIAction,
 		ValidArgsFunction: showGUIBashComplete,
@@ -76,13 +72,6 @@ func showGUIAction(cmd *cobra.Command, args []string) error {
 
 	if !inst.GUI.CanRunGUI {
 		return fmt.Errorf("GUI is not supported for instance %q (driver: %s, display: %s)", instName, inst.VMType, inst.GUI.Display)
-	}
-
-	// Special handling for VZ: GUI cannot be reopened on running VM
-	if inst.VMType == "vz" {
-		return fmt.Errorf("VZ GUI window cannot be reopened after VM startup. "+
-			"The window is created during 'limactl start' and closing it stops the VM. "+
-			"To see the GUI again, stop and restart the instance: 'limactl stop %s && limactl start %s'", instName, instName)
 	}
 
 	// Get the configured driver for this instance

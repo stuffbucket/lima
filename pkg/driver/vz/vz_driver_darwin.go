@@ -326,13 +326,23 @@ func (l *LimaVzDriver) RunGUI() error {
 		return fmt.Errorf("RunGUI is not supported for the given driver '%s' and display '%s'", "vz", *l.Instance.Config.Video.Display)
 	}
 
-	// Guard against calling RunGUI on an already-running VM
-	// The VZ machine object must be initialized during Start(), not Configure()
+	// If machine is nil, VM hasn't been started yet - this shouldn't happen
 	if l.machine == nil {
-		return fmt.Errorf("RunGUI can only be called during VM startup (limactl start), not on an already-running instance. "+
-			"The VZ GUI window is created when the VM starts and cannot be reopened. "+
-			"If you closed the window, the VM has been stopped. Restart with 'limactl start %s'", l.Instance.Name)
+		return fmt.Errorf("cannot show GUI: VM is not running (machine not initialized). Start the VM first with 'limactl start %s'", l.Instance.Name)
 	}
+
+	// Check if GUI window already exists using the vz library's tracking
+	if l.machine.HasGUIWindow() {
+		// GUI exists - bring window to foreground
+		logrus.Info("Bringing VZ GUI window to foreground")
+		if err := l.machine.BringWindowToFront(); err != nil {
+			return fmt.Errorf("cannot bring GUI window to foreground: %w", err)
+		}
+		return nil
+	}
+
+	// GUI doesn't exist yet - create it during VM startup
+	logrus.Info("Creating VZ GUI window during VM startup")
 
 	// Default to a reasonable window size if not specified
 	// macOS will remember window position/size between sessions
@@ -354,11 +364,13 @@ func (l *LimaVzDriver) RunGUI() error {
 	// The scanout resolution (set in vm_darwin.go) defines the guest's display resolution,
 	// while these dimensions control the actual window size on the host.
 	// By matching them, the window content area will fit the guest display without scrollbars.
+	// WithConfirmStopOnClose defaults to true, showing a warning dialog when closing the window
 	return l.machine.StartGraphicApplication(
 		float64(width),
 		float64(height),
 		vz.WithWindowTitle(title),
 		vz.WithController(true),
+		vz.WithConfirmStopOnClose(true),
 	)
 }
 
