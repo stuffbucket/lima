@@ -148,4 +148,4 @@ require (
 )
 
 // Use forked vz library with scrollbar fix for macOS 26.x compatibility
-replace github.com/Code-Hex/vz/v3 => github.com/stuffbucket/vz/v3 v3.0.0-20251105003619-211a05ed6819
+replace github.com/Code-Hex/vz/v3 => github.com/stuffbucket/vz/v3 v3.0.0-20251107231511-ef07a94e8df4
