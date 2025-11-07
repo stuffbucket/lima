@@ -16,7 +16,7 @@ import (
 
 	"github.com/lima-vm/lima/v2/pkg/driver"
 	"github.com/lima-vm/lima/v2/pkg/driver/external/client"
-	"github.com/lima-vm/lima/v2/pkg/usrlocalsharelima"
+	"github.com/lima-vm/lima/v2/pkg/usrlocal"
 )
 
 const (
@@ -124,15 +124,17 @@ func discoverDrivers() error {
 		}
 	}
 
-	stdDriverDir, err := usrlocalsharelima.LibexecLima()
+	stdDriverDirs, err := usrlocal.LibexecLima()
 	if err != nil {
 		return err
 	}
 
-	logrus.Debugf("Discovering external drivers in %s", stdDriverDir)
-	if _, err := os.Stat(stdDriverDir); err == nil {
-		if err := discoverDriversInDir(stdDriverDir); err != nil {
-			logrus.Warnf("Error discovering external drivers in %q: %v", stdDriverDir, err)
+	logrus.Debugf("Discovering external drivers in %v", stdDriverDirs)
+	for _, dir := range stdDriverDirs {
+		if _, err := os.Stat(dir); err == nil {
+			if err := discoverDriversInDir(dir); err != nil {
+				logrus.Warnf("Error discovering external drivers in %q: %v", dir, err)
+			}
 		}
 	}
 	return nil

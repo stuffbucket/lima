@@ -18,9 +18,28 @@ bat = .bat
 exe = .exe
 endif
 
-GO_BUILDTAGS ?=
 ifeq ($(GOOS),darwin)
 MACOS_SDK_VERSION = $(shell xcrun --show-sdk-version | cut -d . -f 1)
+# xcrun command seems to fail even when the SDK is available:
+# > xcrun: error: unable to lookup item 'SDKVersion' in SDK '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk'
+ifeq ($(MACOS_SDK_VERSION),)
+MACOS_SDK_VERSION = $(shell readlink /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk | sed -E -e "s/^MacOSX//" -e "s/\.[0-9]+\.sdk//")
+endif
+endif
+
+DEFAULT_ADDITIONAL_DRIVERS :=
+ifeq ($(GOOS),darwin)
+ifeq ($(GOARCH),arm64)
+ifeq ($(shell test $(MACOS_SDK_VERSION) -ge 14; echo $$?),0)
+# krunkit needs macOS 14 or later: https://github.com/containers/libkrun/blob/main/README.md#macos-efi-variant
+DEFAULT_ADDITIONAL_DRIVERS += krunkit
+endif
+endif
+endif
+ADDITIONAL_DRIVERS ?= $(DEFAULT_ADDITIONAL_DRIVERS)
+
+GO_BUILDTAGS ?=
+ifeq ($(GOOS),darwin)
 ifeq ($(shell test $(MACOS_SDK_VERSION) -lt 13; echo $$?),0)
 # The "vz" mode needs macOS 13 SDK or later
 GO_BUILDTAGS += no_vz
@@ -162,7 +181,7 @@ exe: _output/bin/limactl$(exe)
 
 .PHONY: minimal native
 minimal: clean limactl native-guestagent default_template
-native: clean limactl helpers native-guestagent templates template_experimentals
+native: clean limactl limactl-plugins helpers native-guestagent templates template_experimentals additional-drivers
 
 ################################################################################
 # These configs were once customizable but should no longer be changed.
@@ -542,7 +561,8 @@ uninstall:
 		"$(DEST)/libexec/lima/limactl-mcp$(exe)" \
 		"$(DEST)/libexec/lima/lima-driver-qemu$(exe)" \
 		"$(DEST)/libexec/lima/lima-driver-vz$(exe)" \
-		"$(DEST)/libexec/lima/lima-driver-wsl2$(exe)"
+		"$(DEST)/libexec/lima/lima-driver-wsl2$(exe)" \
+		"$(DEST)/libexec/lima/lima-driver-krunkit$(exe)"
 	if [ "$$(readlink "$(DEST)/bin/nerdctl")" = "nerdctl.lima" ]; then rm "$(DEST)/bin/nerdctl"; fi
 	if [ "$$(readlink "$(DEST)/bin/apptainer")" = "apptainer.lima" ]; then rm "$(DEST)/bin/apptainer"; fi
 
@@ -622,9 +642,10 @@ ARTIFACT_ADDITIONAL_GUESTAGENTS_PATH_COMMON = _artifacts/lima-additional-guestag
 artifact: $(addprefix $(ARTIFACT_PATH_COMMON),$(ARTIFACT_FILE_EXTENSIONS)) \
 	$(addprefix $(ARTIFACT_ADDITIONAL_GUESTAGENTS_PATH_COMMON),$(ARTIFACT_FILE_EXTENSIONS))
 
-ARTIFACT_DES =  _output/bin/limactl$(exe) $(LIMA_DEPS) $(HELPERS_DEPS) \
+ARTIFACT_DES =  _output/bin/limactl$(exe) limactl-plugins $(LIMA_DEPS) $(HELPERS_DEPS) \
 	$(NATIVE_GUESTAGENT) \
-	$(TEMPLATES) $(TEMPLATE_EXPERIMENTALS) \
+	$(TEMPLATES) $(TEMPLATE_IMAGES) $(TEMPLATE_DEFAULTS) $(TEMPLATE_EXPERIMENTALS) \
+	additional-drivers \
 	$(DOCUMENTATION) _output/share/doc/lima/templates \
 	_output/share/man/man1/limactl.1
 

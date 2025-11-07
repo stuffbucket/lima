@@ -20,7 +20,7 @@ import (
 	"github.com/lima-vm/lima/v2/pkg/plugins"
 	"github.com/lima-vm/lima/v2/pkg/registry"
 	"github.com/lima-vm/lima/v2/pkg/templatestore"
-	"github.com/lima-vm/lima/v2/pkg/usrlocalsharelima"
+	"github.com/lima-vm/lima/v2/pkg/usrlocal"
 	"github.com/lima-vm/lima/v2/pkg/version"
 )
 
@@ -29,14 +29,16 @@ type LimaInfo struct {
 	Templates       []templatestore.Template     `json:"templates"`
 	DefaultTemplate *limatype.LimaYAML           `json:"defaultTemplate"`
 	LimaHome        string                       `json:"limaHome"`
-	VMTypes         []string                     `json:"vmTypes"`     // since Lima v0.14.2
-	VMTypesEx       map[string]DriverExt         `json:"vmTypesEx"`   // since Lima v2.0.0
-	GuestAgents     map[limatype.Arch]GuestAgent `json:"guestAgents"` // since Lima v1.1.0
-	ShellEnvBlock   []string                     `json:"shellEnvBlock"`
-	HostOS          string                       `json:"hostOS"`       // since Lima v2.0.0
-	HostArch        string                       `json:"hostArch"`     // since Lima v2.0.0
-	IdentityFile    string                       `json:"identityFile"` // since Lima v2.0.0
-	Plugins         []plugins.Plugin             `json:"plugins"`      // since Lima v2.0.0
+	VMTypes         []string                     `json:"vmTypes"`       // since Lima v0.14.2
+	VMTypesEx       map[string]DriverExt         `json:"vmTypesEx"`     // since Lima v2.0.0
+	GuestAgents     map[limatype.Arch]GuestAgent `json:"guestAgents"`   // since Lima v1.1.0
+	ShellEnvBlock   []string                     `json:"shellEnvBlock"` // since Lima v2.0.0
+	HostOS          string                       `json:"hostOS"`        // since Lima v2.0.0
+	HostArch        string                       `json:"hostArch"`      // since Lima v2.0.0
+	IdentityFile    string                       `json:"identityFile"`  // since Lima v2.0.0
+	Plugins         []plugins.Plugin             `json:"plugins"`       // since Lima v2.0.0
+	LibexecPaths    []string                     `json:"libexecPaths"`  // since Lima v2.0.0
+	SharePaths      []string                     `json:"sharePaths"`    // since Lima v2.0.0
 }
 
 type DriverExt struct {
@@ -95,9 +97,17 @@ func New(ctx context.Context) (*LimaInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	info.LibexecPaths, err = usrlocal.LibexecLima()
+	if err != nil {
+		return nil, err
+	}
+	info.SharePaths, err = usrlocal.ShareLima()
+	if err != nil {
+		return nil, err
+	}
 	info.IdentityFile = filepath.Join(configDir, filenames.UserPrivateKey)
 	for _, arch := range limatype.ArchTypes {
-		bin, err := usrlocalsharelima.GuestAgentBinary(limatype.LINUX, arch)
+		bin, err := usrlocal.GuestAgentBinary(limatype.LINUX, arch)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				logrus.WithError(err).Debugf("Failed to resolve the guest agent binary for %q", arch)
