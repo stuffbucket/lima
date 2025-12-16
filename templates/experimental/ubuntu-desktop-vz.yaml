@@ -73,8 +73,7 @@ message: |
   Installing Xubuntu desktop environment (5-10 minutes).
   The VM will automatically reboot when installation completes.
   
-  After reboot, launch the native macOS GUI window:
-    limactl show-gui ubuntu-desktop
+  After reboot, the VZ display window opens automatically.
   
   No external viewer needed - VZ provides native macOS window!
   

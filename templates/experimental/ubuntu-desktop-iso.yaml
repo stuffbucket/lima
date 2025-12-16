@@ -39,8 +39,8 @@ message: |
   
   This boots the Xubuntu Desktop installer ISO.
   
-  1. Launch the GUI window to see the desktop:
-     _output/bin/limactl show-gui ubuntu-desktop
+  1. Connect to the SPICE display:
+     remote-viewer spice://127.0.0.1:5930
   
   2. Follow the graphical installer in the window
      - Choose "Install Xubuntu"

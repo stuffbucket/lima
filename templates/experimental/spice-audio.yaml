@@ -66,7 +66,7 @@ provision:
       #!/bin/bash
       set -eux -o pipefail
       echo "SPICE display and audio are configured"
-      echo "Launch GUI with: limactl show-gui <instance-name>"
+      echo "Connect with: remote-viewer spice://127.0.0.1:5930"
       echo ""
       echo "Audio testing commands:"
       echo "  speaker-test -t wav -c 2  # Test audio output"
@@ -87,8 +87,8 @@ message: |
   SPICE Display and Audio Enabled
   ====================================================================
   
-  To launch the graphical display:
-    limactl show-gui {{.Name}}
+  To connect to the graphical display:
+    remote-viewer spice://127.0.0.1:5930
   
   SPICE Viewer Required:
     macOS: brew install virt-viewer

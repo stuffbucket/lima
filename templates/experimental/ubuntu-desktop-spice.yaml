@@ -82,8 +82,8 @@ message: |
   The VM is installing the Xubuntu desktop environment.
   This will take several minutes and the VM will reboot automatically.
   
-  After the VM reboots, launch the GUI window:
-    limactl show-gui ubuntu-desktop
+  After the VM reboots, connect to the SPICE display:
+    remote-viewer spice://127.0.0.1:5930
   
   SPICE Viewer Required:
     macOS: brew install virt-viewer
