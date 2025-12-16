@@ -75,10 +75,10 @@ message: |
   The VM is installing Xubuntu desktop (this takes 5-10 minutes).
   The VM will reboot automatically when installation is complete.
   
-  After reboot, launch the GUI window:
-    limactl show-gui ubuntu-desktop
+  After reboot, connect to the SPICE display:
+    remote-viewer spice://127.0.0.1:5930
   
-  Required: Install SPICE viewer first
+  Install SPICE viewer first:
     brew install virt-viewer
   
   Desktop will auto-login as user 'lima'

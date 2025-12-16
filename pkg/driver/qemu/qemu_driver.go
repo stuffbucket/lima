@@ -38,7 +38,6 @@ import (
 	"github.com/lima-vm/lima/v2/pkg/osutil"
 	"github.com/lima-vm/lima/v2/pkg/ptr"
 	"github.com/lima-vm/lima/v2/pkg/reflectutil"
-	"github.com/lima-vm/lima/v2/pkg/spiceclient"
 	"github.com/lima-vm/lima/v2/pkg/version/versionutil"
 )
 
@@ -767,25 +766,9 @@ func (l *LimaQemuDriver) Info() driver.Info {
 	info.Features = driver.DriverFeatures{
 		DynamicSSHAddress:    false,
 		SkipSocketForwarding: false,
-		CanRunGUI:            l.canRunGUI(),
+		CanRunGUI:            false,
 	}
 	return info
-}
-
-// canRunGUI returns true if SPICE display is configured and a viewer is available.
-func (l *LimaQemuDriver) canRunGUI() bool {
-	if l.Instance == nil || l.Instance.Config == nil {
-		return false
-	}
-	if l.Instance.Config.Video.Display == nil {
-		return false
-	}
-	if !strings.HasPrefix(*l.Instance.Config.Video.Display, "spice") {
-		return false
-	}
-	// Check if a SPICE viewer is available
-	_, err := spiceclient.FindViewer()
-	return err == nil
 }
 
 func (l *LimaQemuDriver) SSHAddress(_ context.Context) (string, error) {
@@ -805,43 +788,7 @@ func (l *LimaQemuDriver) Delete(_ context.Context) error {
 }
 
 func (l *LimaQemuDriver) RunGUI() error {
-	// Check if SPICE display is configured
-	if l.Instance.Config.Video.Display != nil && strings.HasPrefix(*l.Instance.Config.Video.Display, "spice") {
-		return l.launchSPICEViewer()
-	}
-	// For other display types (VNC, etc.), do nothing - user should use their own viewer
 	return nil
-}
-
-func (l *LimaQemuDriver) launchSPICEViewer() error {
-	ctx := context.Background()
-
-	// Get SPICE connection info from display configuration
-	conn, err := spiceclient.GetConnectionInfo(*l.Instance.Config.Video.Display)
-	if err != nil {
-		// If we can't parse from config, try querying QMP
-		port, err := l.getSPICEDisplayPort()
-		if err != nil {
-			return fmt.Errorf("failed to get SPICE connection info: %w", err)
-		}
-		// Parse host:port format
-		parts := strings.Split(port, ":")
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid SPICE port format: %s", port)
-		}
-		conn = &spiceclient.Connection{
-			Host: parts[0],
-			Port: parts[1],
-		}
-	}
-
-	// Enable audio if configured
-	if l.Instance.Config.Video.SPICE.Audio != nil && *l.Instance.Config.Video.SPICE.Audio {
-		conn.Audio = true
-	}
-
-	logrus.Infof("Launching SPICE viewer for %s:%s", conn.Host, conn.Port)
-	return spiceclient.LaunchViewer(ctx, conn)
 }
 
 func (l *LimaQemuDriver) Register(_ context.Context) error {
