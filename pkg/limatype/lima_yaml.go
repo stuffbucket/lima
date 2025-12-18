@@ -229,6 +229,17 @@ type VNCOptions struct {
 	Display *string `yaml:"display,omitempty" json:"display,omitempty" jsonschema:"nullable"`
 }
 
+type SPICEOptions struct {
+	// Enable SPICE GL (OpenGL acceleration)
+	GL *bool `yaml:"gl,omitempty" json:"gl,omitempty" jsonschema:"nullable"`
+	// Enable SPICE streaming video
+	StreamingVideo *string `yaml:"streamingVideo,omitempty" json:"streamingVideo,omitempty" jsonschema:"nullable"`
+	// Enable SPICE agent
+	Agent *bool `yaml:"agent,omitempty" json:"agent,omitempty" jsonschema:"nullable"`
+	// Enable SPICE audio streaming
+	Audio *bool `yaml:"audio,omitempty" json:"audio,omitempty" jsonschema:"nullable"`
+}
+
 type VZOptions struct {
 	// Width is the display width in pixels (default: 1920)
 	Width *int `yaml:"width,omitempty" json:"width,omitempty" jsonschema:"nullable"`
@@ -241,9 +252,10 @@ type VZOptions struct {
 
 type Video struct {
 	// Display is a QEMU display string
-	Display *string    `yaml:"display,omitempty" json:"display,omitempty" jsonschema:"nullable"`
-	VNC     VNCOptions `yaml:"vnc,omitempty" json:"vnc,omitempty"`
-	VZ      VZOptions  `yaml:"vz,omitempty" json:"vz,omitempty"`
+	Display *string `yaml:"display,omitempty" json:"display,omitempty" jsonschema:"nullable"`
+	VNC     VNCOptions   `yaml:"vnc,omitempty" json:"vnc,omitempty"`
+	SPICE   SPICEOptions `yaml:"spice,omitempty" json:"spice,omitempty"`
+	VZ      VZOptions    `yaml:"vz,omitempty" json:"vz,omitempty"`
 	// Clipboard enables clipboard sharing between host and guest (default: true when display is enabled)
 	// For VZ: Uses SPICE agent protocol via virtio console. Requires display and spice-vdagent in guest.
 	// For QEMU: Depends on the display backend capabilities.
