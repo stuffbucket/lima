@@ -9,7 +9,7 @@ video:
   # SPICE display with basic settings
   # For production, consider using password protection or TLS
   display: "spice,port=5930,addr=127.0.0.1,disable-ticketing=on"
-  
+
   # SPICE-specific options
   spice:
     # Enable audio streaming over SPICE
@@ -29,19 +29,19 @@ audio:
 
 # Standard VM configuration
 images:
-  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
-    arch: "x86_64"
-  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
-    arch: "aarch64"
+- location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+  arch: "x86_64"
+- location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+  arch: "aarch64"
 
 cpus: 4
 memory: "4GiB"
 disk: "30GiB"
 
 mounts:
-  - location: "~"
-  - location: "/tmp/lima"
-    writable: true
+- location: "~"
+- location: "/tmp/lima"
+  writable: true
 
 # SSH configuration
 ssh:
@@ -54,23 +54,23 @@ firmware:
 
 # Provision scripts
 provision:
-  - mode: system
-    script: |
-      #!/bin/bash
-      set -eux -o pipefail
-      # Install audio utilities for testing
-      apt-get update
-      apt-get install -y alsa-utils pulseaudio
-  - mode: user
-    script: |
-      #!/bin/bash
-      set -eux -o pipefail
-      echo "SPICE display and audio are configured"
-      echo "Connect with: remote-viewer spice://127.0.0.1:5930"
-      echo ""
-      echo "Audio testing commands:"
-      echo "  speaker-test -t wav -c 2  # Test audio output"
-      echo "  arecord -d 5 test.wav     # Test audio input (microphone)"
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    # Install audio utilities for testing
+    apt-get update
+    apt-get install -y alsa-utils pulseaudio
+- mode: user
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    echo "SPICE display and audio are configured"
+    echo "Connect with: remote-viewer spice://127.0.0.1:5930"
+    echo ""
+    echo "Audio testing commands:"
+    echo "  speaker-test -t wav -c 2  # Test audio output"
+    echo "  arecord -d 5 test.wav     # Test audio input (microphone)"
 
 # Host resolver
 hostResolver:
@@ -78,30 +78,30 @@ hostResolver:
 
 # Port forwarding
 portForwards:
-  - guestSocket: "/run/user/{{.UID}}/podman/podman.sock"
-    hostSocket: "{{.Dir}}/sock/podman.sock"
+- guestSocket: "/run/user/{{.UID}}/podman/podman.sock"
+  hostSocket: "{{.Dir}}/sock/podman.sock"
 
 # Message to display after instance is created
 message: |
   ====================================================================
   SPICE Display and Audio Enabled
   ====================================================================
-  
+
   To connect to the graphical display:
     remote-viewer spice://127.0.0.1:5930
-  
+
   SPICE Viewer Required:
     macOS: brew install virt-viewer
     Linux: sudo apt-get install virt-viewer (Ubuntu/Debian)
            sudo dnf install virt-viewer (Fedora/RHEL)
-  
+
   Audio Testing:
     # Inside the VM, test audio output:
     speaker-test -t wav -c 2
-    
+
     # Test audio input (if configured):
     arecord -d 5 test.wav && aplay test.wav
-  
+
   Configuration:
     Display: {{.Video.Display}}
     Audio: SPICE streaming (enabled)
