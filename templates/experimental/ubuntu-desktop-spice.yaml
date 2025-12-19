@@ -96,4 +96,3 @@ message: |
     - SPICE graphics with OpenGL
     - Audio output support
     - SPICE agent for clipboard sharing
-

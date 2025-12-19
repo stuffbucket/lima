@@ -7,13 +7,14 @@ package vz
 
 import (
 	"github.com/Code-Hex/vz/v3"
-	"github.com/lima-vm/lima/v2/pkg/limatype"
 	"github.com/sirupsen/logrus"
+
+	"github.com/lima-vm/lima/v2/pkg/limatype"
 )
 
-// attachSpiceAgent configures SPICE agent for clipboard sharing
-// This enables bidirectional clipboard sharing between host and guest
-// SPICE agent requires a display to be useful
+// attachSpiceAgent configures SPICE agent for clipboard sharing.
+// This enables bidirectional clipboard sharing between host and guest.
+// SPICE agent requires a display to be useful.
 func attachSpiceAgent(inst *limatype.Instance, vmConfig *vz.VirtualMachineConfiguration) error {
 	// SPICE agent only makes sense with a display
 	if inst.Config.Video.Display == nil || *inst.Config.Video.Display == "none" {
