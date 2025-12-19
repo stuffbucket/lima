@@ -390,7 +390,7 @@ func (l *LimaQemuDriver) Stop(ctx context.Context) error {
 	return l.shutdownQEMU(ctx, 3*time.Minute, l.qCmd, l.qWaitCh)
 }
 
-func (l *LimaQemuDriver) ChangeDisplayPassword(ctx context.Context, password string) error {
+func (l *LimaQemuDriver) ChangeDisplayPassword(_ context.Context, password string) error {
 	// Determine if we're using SPICE or VNC based on the display configuration
 	if l.Instance.Config.Video.Display != nil && strings.HasPrefix(*l.Instance.Config.Video.Display, "spice") {
 		return l.changeSPICEPassword(password)
@@ -398,7 +398,7 @@ func (l *LimaQemuDriver) ChangeDisplayPassword(ctx context.Context, password str
 	return l.changeVNCPassword(password)
 }
 
-func (l *LimaQemuDriver) DisplayConnection(ctx context.Context) (string, error) {
+func (l *LimaQemuDriver) DisplayConnection(_ context.Context) (string, error) {
 	// Check if SPICE is configured
 	if l.Instance.Config.Video.Display != nil && strings.HasPrefix(*l.Instance.Config.Video.Display, "spice") {
 		return l.getSPICEDisplayPort()
@@ -484,11 +484,11 @@ func (l *LimaQemuDriver) changeSPICEPassword(password string) error {
 
 	// Execute set_password command for SPICE
 	cmd := struct {
-		Execute   string                 `json:"execute"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Execute   string         `json:"execute"`
+		Arguments map[string]any `json:"arguments"`
 	}{
 		Execute: "set_password",
-		Arguments: map[string]interface{}{
+		Arguments: map[string]any{
 			"protocol": "spice",
 			"password": password,
 		},
@@ -544,7 +544,7 @@ func (l *LimaQemuDriver) getSPICEDisplayPort() (string, error) {
 	}
 
 	if info.Port == nil || *info.Port == 0 {
-		return "", fmt.Errorf("SPICE port not available")
+		return "", errors.New("SPICE port not available")
 	}
 
 	host := "127.0.0.1"

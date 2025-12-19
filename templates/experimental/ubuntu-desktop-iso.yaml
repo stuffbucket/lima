@@ -12,10 +12,10 @@ audio:
 
 # Use Ubuntu Desktop ISO (Xubuntu is lighter than full Ubuntu Desktop)
 images:
-  - location: "https://cdimage.ubuntu.com/xubuntu/releases/24.04/release/xubuntu-24.04.1-desktop-amd64.iso"
-    arch: "x86_64"
-  - location: "https://cdimage.ubuntu.com/xubuntu/releases/24.04/release/xubuntu-24.04.1-desktop-arm64.iso"
-    arch: "aarch64"
+- location: "https://cdimage.ubuntu.com/xubuntu/releases/24.04/release/xubuntu-24.04.1-desktop-amd64.iso"
+  arch: "x86_64"
+- location: "https://cdimage.ubuntu.com/xubuntu/releases/24.04/release/xubuntu-24.04.1-desktop-arm64.iso"
+  arch: "aarch64"
 
 cpus: 4
 memory: "8GiB"
@@ -36,21 +36,21 @@ message: |
   ======================================================================
   Xubuntu Desktop ISO Booted - Manual Installation Required
   ======================================================================
-  
+
   This boots the Xubuntu Desktop installer ISO.
-  
+
   1. Connect to the SPICE display:
      remote-viewer spice://127.0.0.1:5930
-  
+
   2. Follow the graphical installer in the window
      - Choose "Install Xubuntu"
      - Set username/password during installation
      - Complete the installation process
-  
+
   Note: This is a manual desktop installation, not automated.
-  
+
   Required: Install SPICE viewer first
     brew install virt-viewer
-  
+
   After installation, the desktop will boot into the GUI.
   ======================================================================
