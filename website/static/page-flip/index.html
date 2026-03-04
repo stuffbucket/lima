@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Flip Gallery</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a2e;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      overflow: hidden;
+      color: #e0e0e0;
+    }
+
+    .gallery {
+      position: relative;
+      width: 420px;
+      height: 560px;
+      perspective: 1800px;
+      perspective-origin: 50% 50%;
+    }
+
+    /* ─── Card (the stacking unit) ─── */
+    .card {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transform-origin: left center;
+      will-change: transform;
+      cursor: grab;
+    }
+    .card:active { cursor: grabbing; }
+
+    /* ─── Flat faces (visible when not flipping) ─── */
+    .card-face {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-front {
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    }
+    .card-back {
+      transform: rotateY(180deg);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    }
+
+    /*
+     * ─── Nested segments for curved crease ───
+     *
+     * Structure: seg0 > seg1 > seg2 > ... > segN-1
+     * Each has transform-origin: right center and rotateY
+     * applied independently. Because they're nested, the
+     * rotations compound: segment i's world-space rotation
+     * is the SUM of all ancestor rotations plus its own.
+     *
+     * This is what creates the curve — not a flat hinge.
+     */
+    .segments-root {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      pointer-events: none;
+      display: none;
+    }
+
+    .seg {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      transform-style: preserve-3d;
+      transform-origin: right center;
+    }
+
+    .seg-face {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      overflow: hidden;
+      backface-visibility: hidden;
+    }
+    .seg-face-inner {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      width: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .seg-face-back {
+      transform: rotateY(180deg);
+    }
+
+    /* ─── Shadow layers ─── */
+    .corner-shadow {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 140px;
+      height: 140px;
+      background: radial-gradient(ellipse at 100% 100%,
+        rgba(0,0,0,0.4) 0%, transparent 70%);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 10;
+    }
+    .fold-shadow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 10;
+      border-radius: 12px;
+    }
+    .under-shadow {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      pointer-events: none;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      opacity: 0;
+      z-index: -1;
+    }
+
+    /* ─── Card content ─── */
+    .card-content {
+      padding: 40px;
+      text-align: center;
+      user-select: none;
+      -webkit-user-select: none;
+      color: #2a2a2a;
+    }
+    .card-content h2 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+    .card-content p {
+      font-size: 16px;
+      line-height: 1.6;
+      opacity: 0.65;
+      max-width: 320px;
+    }
+    .card-illustration {
+      width: 160px;
+      height: 160px;
+      margin-bottom: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+    }
+    .card-number {
+      position: absolute;
+      bottom: 24px;
+      font-size: 13px;
+      opacity: 0.35;
+      font-variant-numeric: tabular-nums;
+      color: #2a2a2a;
+    }
+
+    /* ─── Navigation ─── */
+    .nav-hint {
+      position: fixed;
+      bottom: 36px;
+      font-size: 13px;
+      opacity: 0.35;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .nav-dots {
+      position: fixed;
+      bottom: 72px;
+      display: flex;
+      gap: 8px;
+    }
+    .nav-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .nav-dot.active {
+      background: rgba(255,255,255,0.8);
+      transform: scale(1.4);
+    }
+  </style>
+</head>
+<body>
+
+<div class="gallery" id="gallery"></div>
+<div class="nav-dots" id="navDots"></div>
+<div class="nav-hint">&larr; drag &middot; swipe &middot; arrow keys &rarr;</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+// Page Flip Gallery
+// ═══════════════════════════════════════════════════
+//
+// Architecture
+// ────────────
+// Each card has two render modes:
+//   1. FLAT — two <div> faces (front/back) with
+//      backface-visibility: hidden. Used at rest.
+//   2. SEGMENTED — N nested divs that each contribute
+//      an incremental rotation, compounding via the
+//      CSS transform cascade. Used during the flip.
+//
+// The curve math
+// ──────────────
+// A sheet of paper is a developable surface (K = 0).
+// During a page turn, the paper locally wraps around
+// an instantaneous cylinder. The ruling lines of
+// this cylinder are the "crease" at each moment.
+//
+// We approximate this with N planar strips. Because
+// the strips are nested (seg0 > seg1 > ... > segN-1),
+// the world-space rotation of strip i is:
+//
+//   Θᵢ = Σⱼ₌₀ⁱ δⱼ
+//
+// where δⱼ is the local rotation of strip j. We set:
+//
+//   δⱼ(t) = wⱼ · θ(t)
+//
+// with weights wⱼ chosen so ΣN wⱼ = 1, and the
+// distribution concentrates curvature at the leading
+// edge (the free corner you'd grab). Specifically:
+//
+//   wⱼ ∝ sin²(π(j+1) / (2N))
+//
+// normalized. The sin² gives a gentler ramp than sin,
+// keeping the spine flatter while the free edge curls.
+// At θ(t) = π, all strips sum to π → page fully turned.
+// ═══════════════════════════════════════════════════
+
+const CARD_W = 420;
+const CARD_H = 560;
+const N_SEG = 7;
+const FLIP_DUR = 0.85;
+
+const pages = [
+  { title: 'The Fold',    emoji: '📐', desc: 'A developable surface has zero Gaussian curvature — paper bends without stretching.',  bg: '#f5f0e8' },
+  { title: 'The Crease',  emoji: '✂️',  desc: 'Ruling lines sweep through space as geodesics on the instantaneous cylinder.',       bg: '#e3eef6' },
+  { title: 'The Shadow',  emoji: '🌑', desc: 'Shadow intensity tracks the normal component of the fold angle to the light source.', bg: '#ede3f2' },
+  { title: 'The Settle',  emoji: '🍃', desc: 'Spring physics at the terminal phase — underdamped oscillation near θ = π.',          bg: '#e1f0e5' },
+  { title: 'The Wrap',    emoji: '🌀', desc: 'θᵢ(t) = θ(t) · Σwⱼ — concentrating curvature at the leading edge.',                  bg: '#f2e8e3' },
+];
+
+// ── Precompute segment weights (sin² distribution, normalized) ──
+const rawWeights = [];
+let wSum = 0;
+for (let j = 0; j < N_SEG; j++) {
+  const s = Math.sin((Math.PI * (j + 1)) / (2 * N_SEG));
+  rawWeights.push(s * s);
+  wSum += s * s;
+}
+const segWeights = rawWeights.map(w => w / wSum);
+// segWeights[j] = fraction of total rotation carried by segment j
+// Sum = 1.0, so when θ_total = 180°, Σ(wⱼ × 180) = 180°
+
+let currentIndex = 0;
+let isAnimating = false;
+
+const gallery = document.getElementById('gallery');
+const navDots = document.getElementById('navDots');
+
+// ═══════════════════════════════════════════════════
+// DOM Construction
+// ═══════════════════════════════════════════════════
+
+function contentHTML(page, idx) {
+  return `<div class="card-content">
+    <div class="card-illustration">${page.emoji}</div>
+    <h2>${page.title}</h2>
+    <p>${page.desc}</p>
+  </div>
+  <span class="card-number">${idx + 1} / ${pages.length}</span>`;
+}
+
+function buildCards() {
+  gallery.innerHTML = '';
+  navDots.innerHTML = '';
+
+  pages.forEach((page, i) => {
+    const next = pages[(i + 1) % pages.length];
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.index = i;
+    card.style.zIndex = pages.length - i;
+
+    // ── Flat faces ──
+    const front = document.createElement('div');
+    front.className = 'card-face card-front';
+    front.style.background = page.bg;
+    front.innerHTML = contentHTML(page, i);
+
+    const back = document.createElement('div');
+    back.className = 'card-face card-back';
+    back.style.background = next.bg;
+    back.innerHTML = contentHTML(next, (i + 1) % pages.length);
+
+    // ── Nested segments ──
+    // Built from the OUTSIDE in: seg0 is the leftmost (spine),
+    // segN-1 is the rightmost (free edge).
+    // Each seg contains the next seg as a child.
+    // transform-origin: right center — rotation axis is the
+    // right edge of each strip (the fold line propagates left).
+    const segRoot = document.createElement('div');
+    segRoot.className = 'segments-root';
+
+    const segW = CARD_W / N_SEG;
+    let parent = segRoot;
+
+    for (let j = N_SEG - 1; j >= 0; j--) {
+      const seg = document.createElement('div');
+      seg.className = 'seg';
+      seg.dataset.seg = j;
+      // Position: this segment spans from j*segW to (j+1)*segW
+      // But since it's nested, its `left` is relative to parent.
+      // The outermost seg (j=N_SEG-1) is rightmost.
+      // We build right-to-left, so each child is offset to the left.
+      seg.style.width = ((j + 1) * segW) + 'px';
+      seg.style.left = '0px';
+
+      // Front face of this strip
+      const faceFront = document.createElement('div');
+      faceFront.className = 'seg-face';
+      faceFront.style.width = segW + 'px';
+      faceFront.style.left = (j * segW) + 'px';
+
+      const fInner = document.createElement('div');
+      fInner.className = 'seg-face-inner';
+      fInner.style.left = -(j * segW) + 'px';
+      fInner.style.background = page.bg;
+      fInner.innerHTML = contentHTML(page, i);
+      faceFront.appendChild(fInner);
+
+      // Back face of this strip
+      const faceBack = document.createElement('div');
+      faceBack.className = 'seg-face seg-face-back';
+      faceBack.style.width = segW + 'px';
+      faceBack.style.left = (j * segW) + 'px';
+
+      const bInner = document.createElement('div');
+      bInner.className = 'seg-face-inner';
+      bInner.style.left = -(j * segW) + 'px';
+      bInner.style.background = next.bg;
+      bInner.innerHTML = contentHTML(next, (i + 1) % pages.length);
+      faceBack.appendChild(bInner);
+
+      seg.appendChild(faceFront);
+      seg.appendChild(faceBack);
+      parent.appendChild(seg);
+      parent = seg;
+    }
+
+    // ── Shadows ──
+    const cornerShadow = document.createElement('div');
+    cornerShadow.className = 'corner-shadow';
+    const foldShadow = document.createElement('div');
+    foldShadow.className = 'fold-shadow';
+    const underShadow = document.createElement('div');
+    underShadow.className = 'under-shadow';
+
+    card.appendChild(front);
+    card.appendChild(back);
+    card.appendChild(segRoot);
+    card.appendChild(cornerShadow);
+    card.appendChild(foldShadow);
+    card.appendChild(underShadow);
+    gallery.appendChild(card);
+
+    // Nav dot
+    const dot = document.createElement('div');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    navDots.appendChild(dot);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// The Flip — 5-Phase GSAP Timeline
+// ═══════════════════════════════════════════════════
+//
+// Phase 1  Corner shadow peek         0.00 → 0.12s
+// Phase 2  Lift (translateZ + scale)  0.05 → 0.20s
+// Phase 3  Activate segments, begin   0.18s
+//          curl with weighted δⱼ(t)
+// Phase 4  Full rotation cascade      0.18 → 0.75s
+// Phase 5  Settle (spring overshoot)  0.60 → 0.90s
+// ═══════════════════════════════════════════════════
+
+function getSegments(card) {
+  // Returns segments ordered j=0 (spine) ... j=N_SEG-1 (free edge)
+  const all = card.querySelectorAll('.seg');
+  const ordered = Array.from(all).sort((a, b) =>
+    Number(a.dataset.seg) - Number(b.dataset.seg)
+  );
+  return ordered;
+}
+
+function flipForward() {
+  if (isAnimating || currentIndex >= pages.length - 1) return;
+  isAnimating = true;
+
+  const card = gallery.children[currentIndex];
+  const front = card.querySelector('.card-front');
+  const back = card.querySelector('.card-back');
+  const segRoot = card.querySelector('.segments-root');
+  const segs = getSegments(card);
+  const cornerShadow = card.querySelector('.corner-shadow');
+  const foldShadow = card.querySelector('.fold-shadow');
+  const underShadow = card.querySelector('.under-shadow');
+
+  const tl = gsap.timeline({
+    onComplete() {
+      segRoot.style.display = 'none';
+      segs.forEach(s => gsap.set(s, { rotateY: 0 }));
+      gsap.set(card, { rotateY: -180, z: 0, scale: 1, zIndex: 0 });
+      front.style.display = '';
+      back.style.display = '';
+      currentIndex++;
+      updateDots();
+      isAnimating = false;
+    }
+  });
+
+  // Phase 1: Corner shadow
+  tl.to(cornerShadow, {
+    opacity: 1, duration: 0.12, ease: 'power2.in'
+  }, 0);
+
+  // Phase 2: Lift
+  tl.to(card, {
+    z: 40, scale: 1.015, duration: 0.18, ease: 'power2.out'
+  }, 0.04);
+
+  tl.to(underShadow, {
+    opacity: 1, duration: 0.15, ease: 'power1.in'
+  }, 0.04);
+
+  // Phase 3: Switch to segmented render
+  tl.call(() => {
+    front.style.display = 'none';
+    back.style.display = 'none';
+    segRoot.style.display = '';
+  }, null, 0.18);
+
+  tl.to(cornerShadow, {
+    opacity: 0, duration: 0.1
+  }, 0.2);
+
+  // Phase 4: Animate each segment's individual rotation
+  // Segment j rotates by segWeights[j] * 180° = its share.
+  // Because they're nested, the cumulative rotation at the
+  // free edge sums to 180°.
+  //
+  // Stagger: the free edge (high j) leads, spine (low j)
+  // catches up. This mimics real paper — you grab the
+  // corner and the bend propagates inward.
+  segs.forEach((seg, j) => {
+    const angle = -(segWeights[j] * 180);
+    const delay = 0.18 + (N_SEG - 1 - j) * 0.025;
+    tl.to(seg, {
+      rotateY: angle,
+      duration: FLIP_DUR * 0.7,
+      ease: 'power2.inOut',
+    }, delay);
+  });
+
+  // Fold shadow — a moving gradient that follows the crease
+  tl.fromTo(foldShadow,
+    { opacity: 0, background: 'linear-gradient(90deg, transparent 30%, rgba(0,0,0,0.12) 50%, transparent 70%)' },
+    { opacity: 1, duration: FLIP_DUR * 0.25, ease: 'power1.in' },
+    0.22
+  );
+  tl.to(foldShadow, {
+    opacity: 0, duration: FLIP_DUR * 0.25, ease: 'power1.out'
+  }, 0.22 + FLIP_DUR * 0.45);
+
+  // Phase 5: Settle
+  tl.to(card, {
+    z: 0, scale: 1, duration: 0.3, ease: 'back.out(2.0)'
+  }, 0.18 + FLIP_DUR * 0.55);
+
+  tl.to(underShadow, {
+    opacity: 0, duration: 0.25, ease: 'power1.out'
+  }, 0.18 + FLIP_DUR * 0.6);
+}
+
+function flipBackward() {
+  if (isAnimating || currentIndex <= 0) return;
+  isAnimating = true;
+  currentIndex--;
+
+  const card = gallery.children[currentIndex];
+  const front = card.querySelector('.card-front');
+  const back = card.querySelector('.card-back');
+  const segRoot = card.querySelector('.segments-root');
+  const segs = getSegments(card);
+  const foldShadow = card.querySelector('.fold-shadow');
+  const underShadow = card.querySelector('.under-shadow');
+
+  // Restore card to proper z-order, start from flipped segments
+  gsap.set(card, {
+    rotateY: 0, zIndex: pages.length - currentIndex,
+    z: 0, scale: 1
+  });
+  front.style.display = 'none';
+  back.style.display = 'none';
+  segRoot.style.display = '';
+
+  // Set segments to their flipped positions
+  segs.forEach((seg, j) => {
+    gsap.set(seg, { rotateY: -(segWeights[j] * 180) });
+  });
+
+  const tl = gsap.timeline({
+    onComplete() {
+      segRoot.style.display = 'none';
+      segs.forEach(s => gsap.set(s, { rotateY: 0 }));
+      gsap.set(card, { rotateY: 0 });
+      front.style.display = '';
+      back.style.display = '';
+      updateDots();
+      isAnimating = false;
+    }
+  });
+
+  // Lift
+  tl.to(card, {
+    z: 40, scale: 1.015, duration: 0.18, ease: 'power2.out'
+  }, 0);
+  tl.to(underShadow, {
+    opacity: 1, duration: 0.15, ease: 'power1.in'
+  }, 0);
+
+  // Unfold — spine leads this time (low j first)
+  segs.forEach((seg, j) => {
+    const delay = 0.12 + j * 0.025;
+    tl.to(seg, {
+      rotateY: 0,
+      duration: FLIP_DUR * 0.7,
+      ease: 'power2.inOut',
+    }, delay);
+  });
+
+  // Fold shadow
+  tl.fromTo(foldShadow,
+    { opacity: 0, background: 'linear-gradient(90deg, transparent 30%, rgba(0,0,0,0.12) 50%, transparent 70%)' },
+    { opacity: 1, duration: FLIP_DUR * 0.25, ease: 'power1.in' },
+    0.15
+  );
+  tl.to(foldShadow, {
+    opacity: 0, duration: FLIP_DUR * 0.25, ease: 'power1.out'
+  }, 0.15 + FLIP_DUR * 0.4);
+
+  // Settle
+  tl.to(card, {
+    z: 0, scale: 1, duration: 0.3, ease: 'back.out(2.0)'
+  }, 0.12 + FLIP_DUR * 0.55);
+  tl.to(underShadow, {
+    opacity: 0, duration: 0.25, ease: 'power1.out'
+  }, 0.12 + FLIP_DUR * 0.55);
+}
+
+// ═══════════════════════════════════════════════════
+// Drag interaction
+// ═══════════════════════════════════════════════════
+
+function setupDrag() {
+  let dragging = false;
+  let startX = 0;
+
+  gallery.addEventListener('pointerdown', e => {
+    if (isAnimating) return;
+    dragging = true;
+    startX = e.clientX;
+    gallery.setPointerCapture(e.pointerId);
+  });
+
+  gallery.addEventListener('pointermove', e => {
+    if (!dragging || isAnimating) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) < 6) return;
+
+    // Preview tilt on current card
+    const tilt = gsap.utils.clamp(-12, 12, dx * 0.08);
+    const card = gallery.children[currentIndex];
+    if (card) {
+      gsap.set(card, { rotateY: tilt, z: Math.abs(tilt) * 1.5 });
+    }
+  });
+
+  gallery.addEventListener('pointerup', e => {
+    if (!dragging) return;
+    dragging = false;
+    const dx = e.clientX - startX;
+    const card = gallery.children[currentIndex];
+
+    if (card) {
+      gsap.to(card, {
+        rotateY: 0, z: 0, duration: 0.25, ease: 'power2.out'
+      });
+    }
+
+    if (dx < -50) flipForward();
+    else if (dx > 50) flipBackward();
+  });
+
+  // Cancel on pointer leave
+  gallery.addEventListener('pointercancel', () => { dragging = false; });
+}
+
+// ═══════════════════════════════════════════════════
+// Keyboard
+// ═══════════════════════════════════════════════════
+
+function setupKeyboard() {
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      flipForward();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      flipBackward();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Nav dots
+// ═══════════════════════════════════════════════════
+
+function updateDots() {
+  navDots.querySelectorAll('.nav-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === currentIndex);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════
+
+buildCards();
+setupDrag();
+setupKeyboard();
+</script>
+</body>
+</html>
